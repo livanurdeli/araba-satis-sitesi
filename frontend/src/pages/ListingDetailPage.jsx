@@ -5,7 +5,10 @@ import BidForm from '../components/BidForm';
 import BidHistory from '../components/BidHistory';
 import CountdownTimer from '../components/CountdownTimer';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, CarFront, Calendar, Shield, User, ChevronLeft, ChevronRight, Trophy, Sparkles } from 'lucide-react';
+import { 
+  ArrowLeft, CarFront, Calendar, Shield, User, 
+  ChevronLeft, ChevronRight, Trophy, Sparkles, Award 
+} from 'lucide-react';
 
 export default function ListingDetailPage() {
   const { id } = useParams();

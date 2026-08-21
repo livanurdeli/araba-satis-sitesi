@@ -180,10 +180,10 @@ export default function ListingCard({ listing }) {
           </div>
         </div>
 
-        {/* 4. Altın Sarısı Teklif Butonu */}
+        {/* 4. Aksiyon Butonu */}
         <Link
           to={`/listings/${listing.id}`}
-          className="btn btn-primary btn-sm"
+          className={`btn btn-sm ${isEnded ? 'btn-secondary' : 'btn-primary'}`}
           style={{
             width: '100%',
             justifyContent: 'center',
@@ -192,11 +192,12 @@ export default function ListingCard({ listing }) {
             padding: '8px 12px',
             fontSize: '0.85rem',
             fontWeight: 800,
-            background: 'var(--accent-primary)',
-            color: '#1a1714',
+            background: isEnded ? 'var(--bg-surface-elevated)' : 'var(--accent-primary)',
+            color: isEnded ? 'var(--text-main)' : '#1a1714',
+            border: isEnded ? '1px solid var(--border-subtle)' : 'none',
           }}
         >
-          <span>Teklif Ver</span>
+          <span>{isEnded ? 'Sonucu İncele' : 'Teklif Ver'}</span>
           <ArrowUpRight size={14} strokeWidth={2.5} />
         </Link>
       </div>
