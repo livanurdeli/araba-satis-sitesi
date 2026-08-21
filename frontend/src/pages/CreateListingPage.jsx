@@ -18,7 +18,9 @@ export default function CreateListingPage() {
     description: '',
     starting_price: '',
     images: [], // Çoklu fotoğraf dizisi
-    durationDays: '3',
+    durationOption: '3d', // 10m, 30m, 1h, 3h, 6h, 12h, 1d, 3d, 7d, custom
+    customDurationValue: 10,
+    customDurationUnit: 'minutes', // minutes, hours, days
   });
 
   const [loading, setLoading] = useState(false);
@@ -138,6 +140,28 @@ export default function CreateListingPage() {
     });
   };
 
+  const calculateEndTime = () => {
+    const now = Date.now();
+    const opt = formData.durationOption;
+    if (opt === '5m') return new Date(now + 5 * 60 * 1000);
+    if (opt === '10m') return new Date(now + 10 * 60 * 1000);
+    if (opt === '30m') return new Date(now + 30 * 60 * 1000);
+    if (opt === '1h') return new Date(now + 60 * 60 * 1000);
+    if (opt === '3h') return new Date(now + 3 * 3600 * 1000);
+    if (opt === '6h') return new Date(now + 6 * 3600 * 1000);
+    if (opt === '12h') return new Date(now + 12 * 3600 * 1000);
+    if (opt === '1d') return new Date(now + 24 * 3600 * 1000);
+    if (opt === '3d') return new Date(now + 3 * 24 * 3600 * 1000);
+    if (opt === '7d') return new Date(now + 7 * 24 * 3600 * 1000);
+    if (opt === 'custom') {
+      const val = parseFloat(formData.customDurationValue) || 10;
+      if (formData.customDurationUnit === 'minutes') return new Date(now + val * 60 * 1000);
+      if (formData.customDurationUnit === 'hours') return new Date(now + val * 3600 * 1000);
+      if (formData.customDurationUnit === 'days') return new Date(now + val * 24 * 3600 * 1000);
+    }
+    return new Date(now + 3 * 24 * 3600 * 1000);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -152,8 +176,7 @@ export default function CreateListingPage() {
       return;
     }
 
-    const durationDays = parseInt(formData.durationDays, 10);
-    const endTime = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+    const endTime = calculateEndTime();
 
     setLoading(true);
     try {
@@ -482,19 +505,87 @@ export default function CreateListingPage() {
 
             {/* Açık Artırma Süresi */}
             <div className="form-group">
-              <label className="form-label" htmlFor="durationDays">Açık Artırma Süresi</label>
+              <label className="form-label" htmlFor="durationOption">Açık Artırma Süresi *</label>
               <select
-                id="durationDays"
-                name="durationDays"
+                id="durationOption"
+                name="durationOption"
                 className="form-select"
-                value={formData.durationDays}
+                value={formData.durationOption}
                 onChange={handleChange}
               >
-                <option value="1">24 Saat</option>
-                <option value="3">3 Gün</option>
-                <option value="5">5 Gün</option>
-                <option value="7">7 Gün</option>
+                <option value="10m">⚡ 10 Dakika (Hızlı Mezat)</option>
+                <option value="30m">⚡ 30 Dakika</option>
+                <option value="1h">⏱️ 1 Saat</option>
+                <option value="3h">⏱️ 3 Saat</option>
+                <option value="6h">⏱️ 6 Saat</option>
+                <option value="12h">⏱️ 12 Saat</option>
+                <option value="1d">📅 24 Saat (1 Gün)</option>
+                <option value="3d">📅 3 Gün (Standart)</option>
+                <option value="7d">📅 7 Gün</option>
+                <option value="custom">⚙️ Kendin Belirle (Özel Süre)...</option>
               </select>
+
+              {/* Özel Süre Girişi */}
+              {formData.durationOption === 'custom' && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.2fr 1fr',
+                  gap: '10px',
+                  marginTop: '10px',
+                  padding: '12px',
+                  background: 'var(--bg-surface-elevated)',
+                  borderRadius: 'var(--radius-xs)',
+                  border: '1px solid var(--border-subtle)',
+                }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Süre Miktarı</label>
+                    <input
+                      type="number"
+                      min="5"
+                      name="customDurationValue"
+                      className="form-input"
+                      value={formData.customDurationValue}
+                      onChange={handleChange}
+                      placeholder="Örn: 10"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>Zaman Birimi</label>
+                    <select
+                      name="customDurationUnit"
+                      className="form-select"
+                      value={formData.customDurationUnit}
+                      onChange={handleChange}
+                    >
+                      <option value="minutes">Dakika</option>
+                      <option value="hours">Saat</option>
+                      <option value="days">Gün</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Anlık Bitiş Zamanı Önizlemesi */}
+              <div style={{
+                marginTop: '6px',
+                fontSize: '0.75rem',
+                color: 'var(--text-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}>
+                <span>⏱️ Açık artırma bitişi:</span>
+                <strong style={{ color: 'var(--text-main)' }}>
+                  {calculateEndTime().toLocaleString('tr-TR', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </strong>
+              </div>
             </div>
 
             {/* Açıklama */}
