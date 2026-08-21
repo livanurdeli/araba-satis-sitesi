@@ -137,15 +137,16 @@ func (h *Hub) BroadcastNewBid(listingID int, amount float64, bidderName string, 
 }
 
 // BroadcastAuctionEnded açık artırma bittiğinde duyurur
-func (h *Hub) BroadcastAuctionEnded(listingID int, winnerID int, winnerName string, finalPrice float64) {
+func (h *Hub) BroadcastAuctionEnded(listingID int, winnerID int, winnerName string, finalPrice float64, listingTitle string) {
 	msg := WSMessage{
 		Type:      "AUCTION_ENDED",
 		ListingID: listingID,
 		Payload: map[string]interface{}{
-			"listing_id":  listingID,
-			"winner_id":   winnerID,
-			"winner_name": winnerName,
-			"final_price": finalPrice,
+			"listing_id":    listingID,
+			"listing_title": listingTitle,
+			"winner_id":     winnerID,
+			"winner_name":   winnerName,
+			"final_price":   finalPrice,
 		},
 	}
 

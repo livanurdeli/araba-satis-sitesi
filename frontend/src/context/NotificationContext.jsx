@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
+import { userAPI } from '../api/client';
 
 const NotificationContext = createContext(null);
 
 export function NotificationProvider({ children }) {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState(() => {
     try {
       const saved = localStorage.getItem('otopazar_notifications');
@@ -17,19 +18,93 @@ export function NotificationProvider({ children }) {
   const [toast, setToast] = useState(null);
   const wsRef = useRef(null);
 
-  // Bildirimleri kaydet
+  // Bildirimleri localStorage'a kaydet
   useEffect(() => {
     localStorage.setItem('otopazar_notifications', JSON.stringify(notifications));
   }, [notifications]);
 
-  // WebSocket Bağlantısını Yönet
+  // Oturum açıldığında kullanıcının kazanılan veya geçilen tekliflerini kontrol edip bildirim üret
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const syncUserBidsAndNotifications = async () => {
+      try {
+        const myBids = await userAPI.getMyBids();
+        if (!Array.isArray(myBids)) return;
+
+        setNotifications(prevNotifications => {
+          const updated = [...prevNotifications];
+          let hasNewWon = false;
+
+          myBids.forEach(bid => {
+            const isEnded = bid.listing_status === 'ended';
+            const isTopBid = Number(bid.my_bid_amount) >= Number(bid.current_price);
+
+            // 1. Kazanılan İhale Kontrolü
+            if (isEnded && isTopBid) {
+              const notifId = `won-${bid.listing_id}`;
+              const exists = updated.some(n => n.id === notifId || (n.listing_id === bid.listing_id && n.type === 'AUCTION_WON'));
+
+              if (!exists) {
+                const wonNotif = {
+                  id: notifId,
+                  type: 'AUCTION_WON',
+                  title: '🎉 Açık Artırmayı Kazandınız!',
+                  message: `Tebrikler! "${bid.listing_title || 'Araç'}" ihalesini ${Number(bid.my_bid_amount).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
+                  listing_id: bid.listing_id,
+                  created_at: bid.bid_created_at || new Date().toISOString(),
+                  read: false,
+                };
+                updated.unshift(wonNotif);
+                hasNewWon = true;
+              }
+            }
+
+            // 2. Geçilen Teklif Kontrolü (Canlı İlanda)
+            if (!isEnded && !isTopBid) {
+              const outbidId = `outbid-${bid.listing_id}-${bid.current_price}`;
+              const exists = updated.some(n => n.id === outbidId);
+
+              if (!exists) {
+                const outbidNotif = {
+                  id: outbidId,
+                  type: 'OUTBID',
+                  title: '⚠️ Teklifiniz Geçildi!',
+                  message: `"${bid.listing_title || 'Araç'}" ilanında yeni en yüksek teklif: ${Number(bid.current_price).toLocaleString('tr-TR')} ₺`,
+                  listing_id: bid.listing_id,
+                  created_at: new Date().toISOString(),
+                  read: false,
+                };
+                updated.unshift(outbidNotif);
+              }
+            }
+          });
+
+          if (hasNewWon && updated.length > 0) {
+            const latest = updated[0];
+            if (latest.type === 'AUCTION_WON') {
+              showToast(latest.title, latest.message);
+            }
+          }
+
+          return updated;
+        });
+      } catch (e) {
+        console.error('Bildirim senkronizasyon hatası:', e);
+      }
+    };
+
+    syncUserBidsAndNotifications();
+  }, [isAuthenticated, user]);
+
+  // WebSocket Canlı Akış Bağlantısını Yönet
   useEffect(() => {
     const wsUrl = `ws://localhost:8080/ws?user_id=${user?.user_id || 0}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('⚡ WebSocket Canlı Akış Bağlandı');
+      console.log('⚡ WebSocket Canlı Bildirim Akışı Bağlandı');
     };
 
     ws.onmessage = (event) => {
@@ -52,16 +127,19 @@ export function NotificationProvider({ children }) {
         } else if (data.type === 'AUCTION_ENDED') {
           if (user && data.payload.winner_id === user.user_id) {
             const newNotif = {
-              id: Date.now(),
+              id: `won-${data.payload.listing_id}`,
               type: 'AUCTION_WON',
               title: '🎉 Açık Artırmayı Kazandınız!',
-              message: `Tebrikler! ${Number(data.payload.final_price).toLocaleString('tr-TR')} ₺ teklifinizle ihaleyi kazandınız.`,
+              message: `Tebrikler! "${data.payload.listing_title || 'Araç'}" ihalesini ${Number(data.payload.final_price).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
               listing_id: data.payload.listing_id,
               created_at: new Date().toISOString(),
               read: false,
             };
 
-            setNotifications(prev => [newNotif, ...prev]);
+            setNotifications(prev => {
+              const filtered = prev.filter(n => n.id !== newNotif.id);
+              return [newNotif, ...filtered];
+            });
             showToast(newNotif.title, newNotif.message);
           }
         }
@@ -81,7 +159,7 @@ export function NotificationProvider({ children }) {
     setToast({ title, message });
     setTimeout(() => {
       setToast(null);
-    }, 5000);
+    }, 6000);
   };
 
   const markAllAsRead = () => {
@@ -114,7 +192,7 @@ export function NotificationProvider({ children }) {
           background: '#ffffff',
           border: '1px solid var(--border-strong)',
           borderLeft: '4px solid var(--accent-primary)',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.12)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
           borderRadius: 'var(--radius-sm)',
           padding: '14px 18px',
           maxWidth: '340px',
