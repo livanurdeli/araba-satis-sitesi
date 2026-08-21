@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Altın Sarısı Yuvarlatılmış Kare Zemin -->
+  <rect width="64" height="64" rx="16" fill="#e5a93c" />
+  
+  <!-- Hız Göstergesi Kadranı -->
+  <path d="M16 44 A 20 20 0 1 1 48 44" stroke="#1a1714" stroke-width="5.5" stroke-linecap="round" />
+  
+  <!-- Kadran Çizgileri -->
+  <line x1="18" y1="36" x2="22" y2="35" stroke="#1a1714" stroke-width="3" stroke-linecap="round" />
+  <line x1="32" y1="16" x2="32" y2="20" stroke="#1a1714" stroke-width="3.5" stroke-linecap="round" />
+  <line x1="46" y1="36" x2="42" y2="35" stroke="#1a1714" stroke-width="3" stroke-linecap="round" />
+  
+  <!-- Gösterge İbresi (Needle) -->
+  <path d="M32 34 L43 23" stroke="#1a1714" stroke-width="4.5" stroke-linecap="round" />
+  
+  <!-- Merkez Noktası -->
+  <circle cx="32" cy="34" r="5" fill="#1a1714" />
+</svg>

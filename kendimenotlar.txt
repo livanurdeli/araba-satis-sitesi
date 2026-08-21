@@ -1,0 +1,12 @@
+### Neden Docker Kullanıyoruz?
+- **Docker bir SQL aracı veya veritabanı değildir.** Sadece uygulamaları yalıtılmış bir "kutu" (container) içinde çalıştırmaya yarayan bir araçtır.
+- **Neden veritabanı için kullandık?** PostgreSQL'i bilgisayara doğrudan kurmak (ayarlar, arka plan servisleri vb.) karmaşıktır ve bilgisayarı yavaşlatabilir.
+- Docker sayesinde internetten "içinde PostgreSQL hazır kurulu olan bir kutu" indirdik ve çalıştırdık.
+
+### pgx Nedir?
+- `pgx`, Go dili için geliştirilmiş modern ve yüksek performanslı bir PostgreSQL sürücüsüdür (driver).
+- **Mantığı:** Bizim yazdığımız Go kodları (ve `database/sql` kütüphanesi) doğrudan veritabanıyla nasıl konuşacağını bilmez. `pgx`, araya girerek Go komutlarımızı PostgreSQL'in anlayacağı dile çeviren bir "tercüman" görevi görür.
+- `_ "github.com/jackc/pgx/v5/stdlib"` şeklindeki kullanım (`_` alt çizgi ile), sürücünün sadece arka planda kendini sisteme kaydetmesini (init fonksiyonunun çalışmasını) sağlar. Bu sayede `sql.Open("pgx", dsn)` dediğimizde sistem pgx'i tanıyabilir.
+go.mod projenin bağımlılıklarını tutuyor. go get komutu ile eklediğimiz paketler buraya kaydediliyor.
+
+go.sum ise go.mod içindeki paketlerin hash kodlarını tutuyor. Bu sayede paketlerin güvenliği sağlanıyor.
