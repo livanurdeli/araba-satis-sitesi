@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { bidAPI } from '../api/client';
 import { AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
@@ -13,11 +13,27 @@ export default function BidForm({ listing, onBidSuccess }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // İlan güncellendiğinde önerilen tutarı güncelle
+  useEffect(() => {
+    if (listing?.current_price) {
+      const newMin = Number(listing.current_price) + 5000;
+      setAmount(newMin);
+    }
+  }, [listing?.current_price]);
+
   const isSeller = user && user.user_id === listing.seller_id;
   const isEnded = listing.status === 'ended' || new Date(listing.end_time) <= new Date();
 
+  // Nokta, virgül veya boşluk içeren girişleri akıllıca tam sayıya çevirme
+  const handleAmountInputChange = (e) => {
+    const rawVal = e.target.value;
+    // Sadece sayısal karakterleri al (nokta, virgül vb. temizle)
+    const digitsOnly = rawVal.replace(/[^0-9]/g, '');
+    setAmount(digitsOnly ? Number(digitsOnly) : '');
+  };
+
   const handleIncrement = (inc) => {
-    setAmount(prev => Number(prev) + inc);
+    setAmount(prev => (Number(prev) || currentPrice) + inc);
   };
 
   const handleSubmit = async (e) => {
@@ -25,19 +41,26 @@ export default function BidForm({ listing, onBidSuccess }) {
     setError('');
     setSuccess('');
 
-    if (Number(amount) <= currentPrice) {
-      setError(`Teklifiniz en az ${(currentPrice + 1).toLocaleString('tr-TR')} ₺ olmalıdır.`);
+    const numericAmount = Number(amount);
+
+    if (!numericAmount || isNaN(numericAmount)) {
+      setError('Lütfen geçerli bir teklif tutarı girin.');
+      return;
+    }
+
+    if (numericAmount <= currentPrice) {
+      setError(`Teklifiniz mevcut fiyattan (${currentPrice.toLocaleString('tr-TR')} ₺) yüksek olmalıdır. Minimum teklif: ${(currentPrice + 1000).toLocaleString('tr-TR')} ₺`);
       return;
     }
 
     setLoading(true);
     try {
-      const res = await bidAPI.placeBid(listing.id, amount);
-      setSuccess('Teklifiniz başarıyla sisteme kaydedildi.');
+      const res = await bidAPI.placeBid(listing.id, numericAmount);
+      setSuccess(`${numericAmount.toLocaleString('tr-TR')} ₺ tutarındaki teklifiniz başarıyla sisteme kaydedildi.`);
       if (onBidSuccess) {
         onBidSuccess(res);
       }
-      setAmount(Number(amount) + 5000);
+      setAmount(numericAmount + 5000);
     } catch (err) {
       setError(err.message || 'Teklif verilemedi.');
     } finally {
@@ -98,13 +121,21 @@ export default function BidForm({ listing, onBidSuccess }) {
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label className="form-label" htmlFor="bid-input">
-            Teklif Tutarı (₺)
-          </label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label className="form-label" htmlFor="bid-input">
+              Teklif Tutarı (₺)
+            </label>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', fontWeight: 600 }}>
+              Min: {(currentPrice + 1000).toLocaleString('tr-TR')} ₺
+            </span>
+          </div>
+
           <div style={{ position: 'relative' }}>
             <input
               id="bid-input"
-              type="number"
+              type="text"
+              inputMode="numeric"
+              placeholder="Örn: 558000 veya 558.000"
               className="form-input"
               style={{
                 fontSize: '1.2rem',
@@ -113,10 +144,8 @@ export default function BidForm({ listing, onBidSuccess }) {
                 paddingRight: '36px',
                 background: 'var(--bg-surface)',
               }}
-              value={amount}
-              min={currentPrice + 1}
-              step="1000"
-              onChange={(e) => setAmount(e.target.value)}
+              value={amount ? Number(amount).toLocaleString('tr-TR') : ''}
+              onChange={handleAmountInputChange}
               required
             />
             <span style={{
@@ -151,7 +180,7 @@ export default function BidForm({ listing, onBidSuccess }) {
           className="btn btn-primary btn-lg"
           style={{ width: '100%', justifyContent: 'center' }}
         >
-          <span>{loading ? 'İşleniyor...' : `${Number(amount).toLocaleString('tr-TR')} ₺ Teklif Ver`}</span>
+          <span>{loading ? 'İşleniyor...' : `${amount ? Number(amount).toLocaleString('tr-TR') : '0'} ₺ Teklif Ver`}</span>
           <ArrowRight size={16} />
         </button>
       </form>
