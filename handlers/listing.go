@@ -33,23 +33,25 @@ type UpdateListingRequest struct {
 }
 
 func GetListings(w http.ResponseWriter, r *http.Request) {
-	query := `SELECT id, seller_id, title, brand, model, year, description, 
-	                 starting_price, current_price, status, image_url, start_time, end_time, created_at 
-	          FROM listings WHERE 1=1`
+	query := `SELECT l.id, l.seller_id, COALESCE(u.name, 'Satıcı') as seller_name, l.title, l.brand, l.model, l.year, l.description, 
+	                 l.starting_price, l.current_price, l.status, l.image_url, l.start_time, l.end_time, l.created_at 
+	          FROM listings l
+	          LEFT JOIN users u ON l.seller_id = u.id
+	          WHERE 1=1`
 	var args []interface{}
 	argIdx := 1
 
 	// Query Parametreleri
 	brand := r.URL.Query().Get("brand")
 	if brand != "" {
-		query += fmt.Sprintf(" AND LOWER(brand) = LOWER($%d)", argIdx)
+		query += fmt.Sprintf(" AND LOWER(l.brand) = LOWER($%d)", argIdx)
 		args = append(args, brand)
 		argIdx++
 	}
 
 	status := r.URL.Query().Get("status")
 	if status != "" {
-		query += fmt.Sprintf(" AND status = $%d", argIdx)
+		query += fmt.Sprintf(" AND l.status = $%d", argIdx)
 		args = append(args, status)
 		argIdx++
 	}
@@ -57,7 +59,7 @@ func GetListings(w http.ResponseWriter, r *http.Request) {
 	minPriceStr := r.URL.Query().Get("min_price")
 	if minPriceStr != "" {
 		if minPrice, err := strconv.ParseFloat(minPriceStr, 64); err == nil {
-			query += fmt.Sprintf(" AND current_price >= $%d", argIdx)
+			query += fmt.Sprintf(" AND l.current_price >= $%d", argIdx)
 			args = append(args, minPrice)
 			argIdx++
 		}
@@ -66,13 +68,13 @@ func GetListings(w http.ResponseWriter, r *http.Request) {
 	maxPriceStr := r.URL.Query().Get("max_price")
 	if maxPriceStr != "" {
 		if maxPrice, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
-			query += fmt.Sprintf(" AND current_price <= $%d", argIdx)
+			query += fmt.Sprintf(" AND l.current_price <= $%d", argIdx)
 			args = append(args, maxPrice)
 			argIdx++
 		}
 	}
 
-	query += " ORDER BY created_at DESC"
+	query += " ORDER BY l.created_at DESC"
 
 	rows, err := repository.DB.Query(query, args...)
 	if err != nil {
@@ -85,7 +87,7 @@ func GetListings(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var l models.Listing
 		err := rows.Scan(
-			&l.ID, &l.SellerID, &l.Title, &l.Brand, &l.Model, &l.Year, &l.Description,
+			&l.ID, &l.SellerID, &l.SellerName, &l.Title, &l.Brand, &l.Model, &l.Year, &l.Description,
 			&l.StartingPrice, &l.CurrentPrice, &l.Status, &l.ImageURL, &l.StartTime, &l.EndTime, &l.CreatedAt,
 		)
 		if err != nil {
@@ -107,13 +109,15 @@ func GetListingByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT id, seller_id, title, brand, model, year, description, 
-	                 starting_price, current_price, status, image_url, start_time, end_time, created_at 
-	          FROM listings WHERE id = $1`
+	query := `SELECT l.id, l.seller_id, COALESCE(u.name, 'Satıcı') as seller_name, l.title, l.brand, l.model, l.year, l.description, 
+	                 l.starting_price, l.current_price, l.status, l.image_url, l.start_time, l.end_time, l.created_at 
+	          FROM listings l
+	          LEFT JOIN users u ON l.seller_id = u.id
+	          WHERE l.id = $1`
 
 	var l models.Listing
 	err = repository.DB.QueryRow(query, id).Scan(
-		&l.ID, &l.SellerID, &l.Title, &l.Brand, &l.Model, &l.Year, &l.Description,
+		&l.ID, &l.SellerID, &l.SellerName, &l.Title, &l.Brand, &l.Model, &l.Year, &l.Description,
 		&l.StartingPrice, &l.CurrentPrice, &l.Status, &l.ImageURL, &l.StartTime, &l.EndTime, &l.CreatedAt,
 	)
 

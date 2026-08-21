@@ -114,10 +114,16 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Başarılı giriş: Token'ı kullanıcıya döndür
+	// Başarılı giriş: Token ve kullanıcı bilgilerini döndür
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"token":   tokenString,
 		"message": "Başarıyla giriş yaptınız",
+		"user": map[string]interface{}{
+			"id":    user.ID,
+			"email": user.Email,
+			"name":  user.Name,
+			"role":  user.Role,
+		},
 	})
 }

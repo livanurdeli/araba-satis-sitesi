@@ -29,6 +29,10 @@ func setupTestApp() http.Handler {
 	mux.HandleFunc("GET /api/listings/{id}/bids", handlers.GetListingBids)
 	mux.HandleFunc("GET /api/users/me/listings", middleware.AuthRequired(handlers.GetMyListings))
 	mux.HandleFunc("GET /api/users/me/bids", middleware.AuthRequired(handlers.GetMyBids))
+	mux.HandleFunc("POST /api/messages", middleware.AuthRequired(handlers.SendMessage))
+	mux.HandleFunc("GET /api/messages/conversations", middleware.AuthRequired(handlers.GetConversations))
+	mux.HandleFunc("GET /api/messages", middleware.AuthRequired(handlers.GetMessages))
+	mux.HandleFunc("GET /api/messages/unread-count", middleware.AuthRequired(handlers.GetUnreadCount))
 
 	return middleware.EnableCORS(mux)
 }
@@ -218,3 +222,173 @@ func TestCompleteFlow(t *testing.T) {
 
 	t.Log("🎯 Hafta 4 Testleri Tamamlandı: Uçtan uca açık artırma akışı, eşzamanlı kilitler, kazanan hesaplama ve panel entegrasyonu kusursuz çalışıyor!")
 }
+
+func TestMessagingFlow(t *testing.T) {
+	app := setupTestApp()
+	ts := httptest.NewServer(app)
+	defer ts.Close()
+
+	client := &http.Client{}
+	timestamp := time.Now().UnixNano()
+	sellerEmail := fmt.Sprintf("msg_seller_%d@example.com", timestamp)
+	buyerEmail := fmt.Sprintf("msg_buyer_%d@example.com", timestamp)
+
+	// 1. Satıcı ve Alıcı Kayıt
+	regSeller, _ := json.Marshal(map[string]string{
+		"email":    sellerEmail,
+		"password": "password123",
+		"name":     "Satıcı Selim",
+	})
+	resp, _ := http.Post(ts.URL+"/api/auth/register", "application/json", bytes.NewBuffer(regSeller))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Satıcı kayıt başarısız: %d", resp.StatusCode)
+	}
+
+	regBuyer, _ := json.Marshal(map[string]string{
+		"email":    buyerEmail,
+		"password": "password123",
+		"name":     "Alıcı Ali",
+	})
+	resp, _ = http.Post(ts.URL+"/api/auth/register", "application/json", bytes.NewBuffer(regBuyer))
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Alıcı kayıt başarısız: %d", resp.StatusCode)
+	}
+
+	// 2. Giriş yap ve token al
+	loginSeller, _ := json.Marshal(map[string]string{"email": sellerEmail, "password": "password123"})
+	resp, _ = http.Post(ts.URL+"/api/auth/login", "application/json", bytes.NewBuffer(loginSeller))
+	var sellerAuth struct {
+		Token string `json:"token"`
+		User  struct {
+			ID int `json:"id"`
+		} `json:"user"`
+	}
+	json.NewDecoder(resp.Body).Decode(&sellerAuth)
+
+	loginBuyer, _ := json.Marshal(map[string]string{"email": buyerEmail, "password": "password123"})
+	resp, _ = http.Post(ts.URL+"/api/auth/login", "application/json", bytes.NewBuffer(loginBuyer))
+	var buyerAuth struct {
+		Token string `json:"token"`
+		User  struct {
+			ID int `json:"id"`
+		} `json:"user"`
+	}
+	json.NewDecoder(resp.Body).Decode(&buyerAuth)
+
+	// 3. Satıcı ilan oluştursun
+	listingPayload, _ := json.Marshal(map[string]interface{}{
+		"title":          "2021 BMW 320i M Sport",
+		"brand":          "BMW",
+		"model":          "320i",
+		"year":           2021,
+		"description":    "Temiz araç",
+		"starting_price": 1200000.0,
+		"image_url":      "https://example.com/bmw.jpg",
+		"end_time":       time.Now().Add(1 * time.Hour),
+	})
+	req, _ := http.NewRequest("POST", ts.URL+"/api/listings", bytes.NewBuffer(listingPayload))
+	req.Header.Set("Authorization", "Bearer "+sellerAuth.Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusCreated {
+		t.Fatalf("İlan oluşturma başarısız: %d", resp.StatusCode)
+	}
+	var createdListing struct {
+		ID int `json:"id"`
+	}
+	json.NewDecoder(resp.Body).Decode(&createdListing)
+	listingID := createdListing.ID
+
+	// 4. Alıcı satıcıya mesaj göndersin (listing_id ile)
+	msgPayload, _ := json.Marshal(map[string]interface{}{
+		"listing_id":  listingID,
+		"receiver_id": sellerAuth.User.ID,
+		"content":     "Merhaba, aracın kışlık lastikleri de verilecek mi?",
+	})
+	req, _ = http.NewRequest("POST", ts.URL+"/api/messages", bytes.NewBuffer(msgPayload))
+	req.Header.Set("Authorization", "Bearer "+buyerAuth.Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err = client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Mesaj gönderme başarısız: %d", resp.StatusCode)
+	}
+
+	// 5. Satıcının okunmamış mesaj sayısını kontrol et
+	req, _ = http.NewRequest("GET", ts.URL+"/api/messages/unread-count", nil)
+	req.Header.Set("Authorization", "Bearer "+sellerAuth.Token)
+	resp, _ = client.Do(req)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Okunmamış mesaj sayısı çekilemedi: %d", resp.StatusCode)
+	}
+	var unreadResp struct {
+		UnreadCount int `json:"unread_count"`
+	}
+	json.NewDecoder(resp.Body).Decode(&unreadResp)
+	if unreadResp.UnreadCount != 1 {
+		t.Fatalf("Beklenen okunmamış mesaj sayısı 1, gelen: %d", unreadResp.UnreadCount)
+	}
+
+	// 6. Satıcının sohbet listesini çek
+	req, _ = http.NewRequest("GET", ts.URL+"/api/messages/conversations", nil)
+	req.Header.Set("Authorization", "Bearer "+sellerAuth.Token)
+	resp, _ = client.Do(req)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Sohbet listesi çekilemedi: %d", resp.StatusCode)
+	}
+	var conversations []map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&conversations)
+	if len(conversations) != 1 {
+		t.Fatalf("Beklenen sohbet sayısı 1, gelen: %d", len(conversations))
+	}
+	if conversations[0]["other_user_name"] != "Alıcı Ali" {
+		t.Fatalf("Karşı kullanıcı adı hatalı: %v", conversations[0]["other_user_name"])
+	}
+
+	// 7. Satıcı konuşmanın mesaj geçmişini okusun (bu sırada okundu işaretlenmeli)
+	req, _ = http.NewRequest("GET", fmt.Sprintf("%s/api/messages?listing_id=%d&other_user_id=%d", ts.URL, listingID, buyerAuth.User.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+sellerAuth.Token)
+	resp, _ = client.Do(req)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Mesaj geçmişi çekilemedi: %d", resp.StatusCode)
+	}
+	var messages []map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&messages)
+	if len(messages) != 1 {
+		t.Fatalf("Beklenen mesaj sayısı 1, gelen: %d", len(messages))
+	}
+
+	// 8. Satıcının okunmamış mesaj sayısı şimdi 0 olmalı
+	req, _ = http.NewRequest("GET", ts.URL+"/api/messages/unread-count", nil)
+	req.Header.Set("Authorization", "Bearer "+sellerAuth.Token)
+	resp, _ = client.Do(req)
+	json.NewDecoder(resp.Body).Decode(&unreadResp)
+	if unreadResp.UnreadCount != 0 {
+		t.Fatalf("Okunduktan sonra okunmamış mesaj sayısı 0 olmalıydı, gelen: %d", unreadResp.UnreadCount)
+	}
+
+	// 9. Satıcı alıcıya cevap yazsın
+	replyPayload, _ := json.Marshal(map[string]interface{}{
+		"listing_id":  listingID,
+		"receiver_id": buyerAuth.User.ID,
+		"content":     "Evet, 4 adet Michelin kış lastiği yanında hediye verilecektir.",
+	})
+	req, _ = http.NewRequest("POST", ts.URL+"/api/messages", bytes.NewBuffer(replyPayload))
+	req.Header.Set("Authorization", "Bearer "+sellerAuth.Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Cevap mesajı gönderilemedi: %d", resp.StatusCode)
+	}
+
+	// 10. Alıcı tüm mesajları çeksin (toplam 2 mesaj olmalı)
+	req, _ = http.NewRequest("GET", fmt.Sprintf("%s/api/messages?listing_id=%d&other_user_id=%d", ts.URL, listingID, sellerAuth.User.ID), nil)
+	req.Header.Set("Authorization", "Bearer "+buyerAuth.Token)
+	resp, _ = client.Do(req)
+	json.NewDecoder(resp.Body).Decode(&messages)
+	if len(messages) != 2 {
+		t.Fatalf("Beklenen toplam mesaj sayısı 2, gelen: %d", len(messages))
+	}
+
+	t.Log("🎯 Mesajlaşma Testleri Başarılı: Alıcı-Satıcı mesajlaşma, sohbet listesi, anlık okundu takibi ve bildirim sayıları eksiksiz çalışıyor!")
+}
+

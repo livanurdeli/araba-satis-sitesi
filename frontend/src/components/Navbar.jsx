@@ -1,11 +1,53 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Plus, User, LogOut, LogIn, Gauge } from 'lucide-react';
+import { Plus, User, LogOut, LogIn, Gauge, MessageSquare } from 'lucide-react';
 import NotificationBell from './NotificationBell';
+import { messageAPI } from '../api/client';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+
+  const fetchUnreadCount = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const res = await messageAPI.getUnreadCount();
+      setUnreadMsgCount(res.unread_count || 0);
+    } catch (e) {
+      // sessizce geç
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+    // Sayfa değiştikçe (özellikle /messages sayfasına girip çıkınca) unread sayısını yenile
+  }, [isAuthenticated, location.pathname]);
+
+  // WebSocket üzerinden yeni mesaj bildirimi dinleme
+  useEffect(() => {
+    if (!user || !user.user_id) return;
+
+    const wsUrl = `ws://localhost:8080/ws?user_id=${user.user_id}`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'NEW_MESSAGE') {
+          if (data.payload.receiver_id === user.user_id && location.pathname !== '/messages') {
+            setUnreadMsgCount(prev => prev + 1);
+          }
+        }
+      } catch (e) {}
+    };
+
+    return () => {
+      if (ws.readyState === 1) ws.close();
+    };
+  }, [user?.user_id, location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -79,6 +121,45 @@ export default function Navbar() {
 
           {isAuthenticated ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {/* Mesajlar Butonu */}
+              <Link
+                to="/messages"
+                className="btn btn-secondary btn-sm"
+                style={{
+                  position: 'relative',
+                  padding: '7px 12px',
+                  borderRadius: 'var(--radius-xs)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+                title="Mesajlarım"
+              >
+                <MessageSquare size={16} />
+                <span>Mesajlar</span>
+                {unreadMsgCount > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-5px',
+                    right: '-5px',
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: '0.65rem',
+                    fontWeight: 800,
+                    borderRadius: '10px',
+                    minWidth: '18px',
+                    height: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 4px',
+                    boxShadow: '0 0 0 2px #ffffff',
+                  }}>
+                    {unreadMsgCount}
+                  </span>
+                )}
+              </Link>
+
               <NotificationBell />
 
               <Link to="/create-listing" className="btn btn-primary btn-sm" style={{ borderRadius: 'var(--radius-xs)' }}>

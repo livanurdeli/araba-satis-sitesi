@@ -154,6 +154,32 @@ func (h *Hub) BroadcastAuctionEnded(listingID int, winnerID int, winnerName stri
 	h.broadcast <- data
 }
 
+// BroadcastNewMessage alıcı ve gönderene yeni mesaj iletimini anlık olarak WebSocket üzerinden gönderir
+func (h *Hub) BroadcastNewMessage(msg interface{}, receiverID int, senderID int) {
+	wsMsg := WSMessage{
+		Type:    "NEW_MESSAGE",
+		UserID:  receiverID,
+		Payload: msg,
+	}
+
+	data, err := json.Marshal(wsMsg)
+	if err != nil {
+		return
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		if client.UserID == receiverID || client.UserID == senderID {
+			select {
+			case client.Send <- data:
+			default:
+			}
+		}
+	}
+}
+
 func (c *Client) readPump() {
 	defer func() {
 		c.Hub.unregister <- c

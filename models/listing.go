@@ -5,6 +5,7 @@ import "time"
 type Listing struct {
 	ID            int       `json:"id"`
 	SellerID      int       `json:"seller_id"`
+	SellerName    string    `json:"seller_name,omitempty"`
 	Title         string    `json:"title"`
 	Brand         string    `json:"brand"`
 	Model         string    `json:"model"`

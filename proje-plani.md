@@ -93,11 +93,11 @@ GET    /api/users/me/bids         (verdiğim teklifler)
 
 
 ### Hafta 1 — Temel Altyapı
-- [ ] Go proje iskeleti (klasör yapısı: `handlers/`, `models/`, `repository/`, `middleware/`)
-- [ ] PostgreSQL/MySQL bağlantısı, migration dosyaları
-- [ ] Veritabanı şemasını oluştur (users, listings, bids)
-- [ ] JWT auth: register/login endpoint'leri
-- [ ] Auth middleware (token doğrulama)
+- [x] Go proje iskeleti (klasör yapısı: `handlers/`, `models/`, `repository/`, `middleware/`)
+- [x] PostgreSQL/MySQL bağlantısı, migration dosyaları
+- [x] Veritabanı şemasını oluştur (users, listings, bids, messages)
+- [x] JWT auth: register/login endpoint'leri
+- [x] Auth middleware (token doğrulama)
 
 ### Hafta 2 — Backend İş Mantığı
 - [x] Listing CRUD endpoint'leri

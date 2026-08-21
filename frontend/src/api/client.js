@@ -66,3 +66,14 @@ export const userAPI = {
   getMyListings: () => request('/users/me/listings', { method: 'GET' }),
   getMyBids: () => request('/users/me/bids', { method: 'GET' }),
 };
+
+export const messageAPI = {
+  sendMessage: (data) => request('/messages', { method: 'POST', body: JSON.stringify(data) }),
+  getConversations: () => request('/messages/conversations', { method: 'GET' }),
+  getMessages: (listingId, otherUserId) => {
+    let url = `/messages?listing_id=${listingId}`;
+    if (otherUserId) url += `&other_user_id=${otherUserId}`;
+    return request(url, { method: 'GET' });
+  },
+  getUnreadCount: () => request('/messages/unread-count', { method: 'GET' }),
+};

@@ -53,9 +53,14 @@ func main() {
 		userID := r.Context().Value(middleware.UserIDKey).(int)
 		role := r.Context().Value(middleware.RoleKey).(string)
 
+		var name, email string
+		_ = repository.DB.QueryRow("SELECT name, email FROM users WHERE id = $1", userID).Scan(&name, &email)
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"user_id": userID,
+			"name":    name,
+			"email":   email,
 			"role":    role,
 			"status":  "Giriş yapılmış oturum aktif",
 		})
@@ -75,6 +80,12 @@ func main() {
 	// --- Kullanıcı Paneli Route'ları ---
 	mux.HandleFunc("GET /api/users/me/listings", middleware.AuthRequired(handlers.GetMyListings))
 	mux.HandleFunc("GET /api/users/me/bids", middleware.AuthRequired(handlers.GetMyBids))
+
+	// --- Mesajlaşma (Message) Route'ları ---
+	mux.HandleFunc("POST /api/messages", middleware.AuthRequired(handlers.SendMessage))
+	mux.HandleFunc("GET /api/messages/conversations", middleware.AuthRequired(handlers.GetConversations))
+	mux.HandleFunc("GET /api/messages", middleware.AuthRequired(handlers.GetMessages))
+	mux.HandleFunc("GET /api/messages/unread-count", middleware.AuthRequired(handlers.GetUnreadCount))
 
 	// --- React SPA Statik Dosya Sunucusu (Frontend/dist) ---
 	fileServer := http.FileServer(http.Dir("./frontend/dist"))

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { userAPI, listingAPI } from '../api/client';
 import { 
   Plus, Trash2, ExternalLink, Clock, 
-  CheckCircle2, TrendingUp, AlertCircle, Award 
+  CheckCircle2, TrendingUp, AlertCircle, Award, MessageSquare 
 } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -68,9 +68,14 @@ export default function ProfilePage() {
             </p>
           </div>
 
-          <Link to="/create-listing" className="btn btn-primary btn-sm">
-            <Plus size={15} /> Yeni İlan
-          </Link>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <Link to="/messages" className="btn btn-secondary btn-sm">
+              <MessageSquare size={15} /> Mesajlarım
+            </Link>
+            <Link to="/create-listing" className="btn btn-primary btn-sm">
+              <Plus size={15} /> Yeni İlan
+            </Link>
+          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -233,7 +238,7 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', display: 'block', textTransform: 'uppercase', fontWeight: 800 }}>
                           Verdiğiniz Teklif
@@ -247,6 +252,19 @@ export default function ProfilePage() {
                           {Number(bid.my_bid_amount).toLocaleString('tr-TR')} ₺
                         </span>
                       </div>
+                      
+                      {isWon && (
+                        <Link
+                          to={`/messages?listing_id=${bid.listing_id}`}
+                          className="btn btn-primary btn-sm"
+                          style={{ background: '#15803d', borderColor: '#15803d' }}
+                          title="Satıcıya Mesaj Gönder"
+                        >
+                          <MessageSquare size={14} />
+                          <span>Satıcıya Yaz</span>
+                        </Link>
+                      )}
+
                       <Link to={`/listings/${bid.listing_id}`} className="btn btn-secondary btn-sm">
                         <span>İncele</span>
                         <ExternalLink size={14} />

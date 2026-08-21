@@ -7,7 +7,7 @@ import CountdownTimer from '../components/CountdownTimer';
 import { useAuth } from '../context/AuthContext';
 import { 
   ArrowLeft, CarFront, Calendar, Shield, User, 
-  ChevronLeft, ChevronRight, Trophy, Sparkles, Award 
+  ChevronLeft, ChevronRight, Trophy, Sparkles, Award, MessageSquare 
 } from 'lucide-react';
 
 export default function ListingDetailPage() {
@@ -349,6 +349,61 @@ export default function ListingDetailPage() {
                 {listing.description || 'Satıcı bu araç için ek bir açıklama belirtmedi.'}
               </p>
             </div>
+
+            {/* Satıcı Bilgileri ve Doğrudan Mesaj Gönderme Kartı */}
+            <div className="card" style={{ padding: '24px' }}>
+              <h3 style={{ fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)', marginBottom: '14px' }}>
+                Satıcı Bilgileri
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '50%',
+                    background: 'var(--accent-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    color: '#1a1714',
+                    fontSize: '1.1rem',
+                  }}>
+                    {listing.seller_name ? listing.seller_name[0].toUpperCase() : 'S'}
+                  </div>
+                  <div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>
+                      {listing.seller_name || 'Satıcı'}
+                    </h4>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
+                      Doğrulanmış İlan Sahibi • Satıcı ID #{listing.seller_id}
+                    </span>
+                  </div>
+                </div>
+
+                {user?.user_id !== listing.seller_id ? (
+                  <Link
+                    to={`/messages?listing_id=${listing.id}&other_user_id=${listing.seller_id}`}
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      fontWeight: 700,
+                      borderRadius: 'var(--radius-xs)',
+                    }}
+                  >
+                    <MessageSquare size={16} color="var(--accent-primary)" />
+                    <span>Satıcıya Mesaj Gönder</span>
+                  </Link>
+                ) : (
+                  <span className="badge badge-tag" style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
+                    Sizin İlanınız
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Right Column: Live Bidding Module */}
@@ -439,9 +494,46 @@ export default function ListingDetailPage() {
                 </div>
 
                 {user && user.user_id === bids[0].bidder_id && (
-                  <div style={{ marginTop: '10px', fontSize: '0.85rem', fontWeight: 800, color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Sparkles size={15} />
-                    <span>Tebrikler! Bu açık artırmada en yüksek teklif sahibi olarak aracı satın alma hakkı kazandınız.</span>
+                  <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#15803d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Sparkles size={15} />
+                      <span>Tebrikler! Bu açık artırmada en yüksek teklif sahibi olarak aracı satın alma hakkı kazandınız.</span>
+                    </div>
+                    <Link
+                      to={`/messages?listing_id=${listing.id}&other_user_id=${listing.seller_id}`}
+                      className="btn btn-primary btn-sm"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        fontWeight: 800,
+                        background: '#15803d',
+                        borderColor: '#15803d',
+                      }}
+                    >
+                      <MessageSquare size={16} />
+                      <span>Satıcı ile İletişime Geç (Mesaj Gönder)</span>
+                    </Link>
+                  </div>
+                )}
+
+                {user && user.user_id === listing.seller_id && (
+                  <div style={{ marginTop: '12px' }}>
+                    <Link
+                      to={`/messages?listing_id=${listing.id}&other_user_id=${bids[0].bidder_id}`}
+                      className="btn btn-primary btn-sm"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        fontWeight: 800,
+                      }}
+                    >
+                      <MessageSquare size={16} />
+                      <span>Kazanan Alıcı ile İletişime Geç ({bids[0].bidder_name || 'Alıcı'})</span>
+                    </Link>
                   </div>
                 )}
               </div>
