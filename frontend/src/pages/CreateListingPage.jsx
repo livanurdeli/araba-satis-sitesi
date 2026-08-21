@@ -80,13 +80,39 @@ export default function CreateListingPage() {
 
     setError('');
     try {
+      // Önce doğrudan sunucuya yüklemeyi dene
+      const token = localStorage.getItem('token');
+      const fd = new FormData();
+      files.forEach(f => fd.append('files', f));
+
+      const uploadRes = await fetch('http://localhost:8080/api/upload', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: fd,
+      });
+
+      if (uploadRes.ok) {
+        const uploadData = await uploadRes.json();
+        const urls = uploadData.urls || [uploadData.url];
+        setFormData(prev => ({
+          ...prev,
+          images: [...prev.images, ...urls],
+        }));
+      } else {
+        // Sunucu hatasında yerel canvas optimizasyonuna geri dön
+        const processed = await Promise.all(files.map(processFile));
+        setFormData(prev => ({
+          ...prev,
+          images: [...prev.images, ...processed],
+        }));
+      }
+    } catch {
+      // Ağ hatasında yerel canvas optimizasyonuna geri dön
       const processed = await Promise.all(files.map(processFile));
       setFormData(prev => ({
         ...prev,
         images: [...prev.images, ...processed],
       }));
-    } catch (err) {
-      setError(err.message || 'Fotoğraflar yüklenirken bir hata oluştu.');
     } finally {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';

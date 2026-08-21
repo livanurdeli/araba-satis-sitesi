@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -16,9 +17,10 @@ export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          <Navbar />
-          <main style={{ flex: 1 }}>
+        <NotificationProvider>
+          <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <Navbar />
+            <main style={{ flex: 1 }}>
             <Routes>
               <Route path="/" element={<ListingsPage />} />
               <Route path="/listings" element={<ListingsPage />} />
@@ -52,6 +54,7 @@ export default function App() {
           </main>
           <Footer />
         </div>
+        </NotificationProvider>
       </AuthProvider>
     </Router>
   );

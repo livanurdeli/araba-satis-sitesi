@@ -4,6 +4,7 @@ import (
 	"araba-satis-sitesi/middleware"
 	"araba-satis-sitesi/models"
 	"araba-satis-sitesi/repository"
+	"araba-satis-sitesi/services"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -55,6 +56,7 @@ func PlaceBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+
 	var sellerID int
 	var currentPrice float64
 	var status string
@@ -94,6 +96,10 @@ func PlaceBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Önceki lider teklif sahibini tespit et (OUTBID bildirimi için)
+	var previousBidderID int
+	_ = tx.QueryRow(`SELECT bidder_id FROM bids WHERE listing_id = $1 ORDER BY amount DESC LIMIT 1`, listingID).Scan(&previousBidderID)
+
 	var bid models.Bid
 	bid.ListingID = listingID
 	bid.BidderID = bidderID
@@ -115,10 +121,20 @@ func PlaceBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Teklif veren kullanıcının adını çek
+	var bidderName string
+	_ = tx.QueryRow(`SELECT name FROM users WHERE id = $1`, bidderID).Scan(&bidderName)
+	if bidderName == "" {
+		bidderName = "Alıcı #" + strconv.Itoa(bidderID)
+	}
+
 	if err := tx.Commit(); err != nil {
 		http.Error(w, "İşlem onaylanamadı", http.StatusInternalServerError)
 		return
 	}
+
+	// WebSocket ile anında tüm bağlı kullanıcılara ve önceki lidere canlı yayın yap
+	go services.GlobalHub.BroadcastNewBid(listingID, req.Amount, bidderName, bidderID, previousBidderID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -126,6 +142,7 @@ func PlaceBid(w http.ResponseWriter, r *http.Request) {
 		"message":       "Teklifiniz başarıyla verildi!",
 		"bid":           bid,
 		"current_price": req.Amount,
+		"bidder_name":   bidderName,
 	})
 }
 

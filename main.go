@@ -24,7 +24,25 @@ func main() {
 	// 2. Arka plan açık artırma zamanlayıcısını başlat (30 saniyede bir kontrol eder)
 	services.StartAuctionWatcher(db, 30*time.Second)
 
+	// 3. WebSocket Hub'ını arka planda başlat
+	go services.GlobalHub.Run()
+
+	// Uploads klasörünü garanti et
+	_ = os.MkdirAll("./uploads", os.ModePerm)
+
 	mux := http.NewServeMux()
+
+	// --- WebSocket Route'u ---
+	mux.HandleFunc("GET /ws", func(w http.ResponseWriter, r *http.Request) {
+		services.ServeWS(services.GlobalHub, w, r)
+	})
+
+	// --- Medya Yükleme (Upload) Route'u ---
+	mux.HandleFunc("POST /api/upload", middleware.AuthRequired(handlers.UploadHandler))
+
+	// --- Fiziksel Yüklenen Dosyaları Sunma (/uploads/...) ---
+	uploadsServer := http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads")))
+	mux.Handle("GET /uploads/", uploadsServer)
 
 	// --- Auth Route'ları ---
 	mux.HandleFunc("POST /api/auth/register", handlers.Register)
@@ -61,7 +79,7 @@ func main() {
 	// --- React SPA Statik Dosya Sunucusu (Frontend/dist) ---
 	fileServer := http.FileServer(http.Dir("./frontend/dist"))
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api") {
+		if strings.HasPrefix(r.URL.Path, "/api") || strings.HasPrefix(r.URL.Path, "/uploads") {
 			http.NotFound(w, r)
 			return
 		}

@@ -57,8 +57,37 @@ export default function ListingDetailPage() {
     }
   };
 
+  const [priceFlash, setPriceFlash] = useState(false);
+
   useEffect(() => {
     fetchData();
+
+    // WebSocket ile Bu İlanı Canlı Dinleme
+    const wsUrl = `ws://localhost:8080/ws?listing_id=${id}`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'NEW_BID' && Number(data.listing_id) === Number(id)) {
+          // Fiyatı ve teklif listesini anında yenile
+          setListing(prev => prev ? { ...prev, current_price: data.payload.amount } : prev);
+          setPriceFlash(true);
+          setTimeout(() => setPriceFlash(false), 2000);
+          
+          // Teklif geçmişini tekrar çek
+          bidAPI.getBids(id).then(freshBids => setBids(freshBids)).catch(() => {});
+        } else if (data.type === 'AUCTION_ENDED' && Number(data.listing_id) === Number(id)) {
+          setListing(prev => prev ? { ...prev, status: 'ended' } : prev);
+        }
+      } catch (e) {
+        console.error('WS Error:', e);
+      }
+    };
+
+    return () => {
+      if (ws.readyState === 1) ws.close();
+    };
   }, [id]);
 
   const handleBidSuccess = (res) => {
@@ -334,8 +363,13 @@ export default function ListingDetailPage() {
                 fontSize: '2.2rem',
                 fontWeight: 900,
                 fontFamily: 'var(--font-mono)',
-                color: 'var(--text-main)',
+                color: priceFlash ? '#854d0e' : 'var(--text-main)',
+                background: priceFlash ? '#fef08a' : 'transparent',
+                padding: priceFlash ? '4px 10px' : '0',
+                borderRadius: 'var(--radius-xs)',
+                transition: 'all 0.35s ease',
                 marginBottom: '14px',
+                display: 'inline-block',
               }}>
                 {Number(listing.current_price).toLocaleString('tr-TR')} ₺
               </div>

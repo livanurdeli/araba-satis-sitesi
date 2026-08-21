@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Plus, User, LogOut, LogIn, Gauge } from 'lucide-react';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -78,6 +79,8 @@ export default function Navbar() {
 
           {isAuthenticated ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <NotificationBell />
+
               <Link to="/create-listing" className="btn btn-primary btn-sm" style={{ borderRadius: 'var(--radius-xs)' }}>
                 <Plus size={15} />
                 <span>İlan Ver</span>
