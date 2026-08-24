@@ -459,6 +459,34 @@ func TestAIAgentChat(t *testing.T) {
 		t.Fatalf("Beklenen ekspertiz rehberi yanıtı gelmedi: %s", res.Reply)
 	}
 
-	t.Log("🤖 Yapay Zeka OtoDanışman Agent Testleri Başarılı: Karşılama, bütçe analizi, araç önerileri ve ekspertiz tavsiyeleri kusursuz çalışıyor!")
+	// 4. Ödeme ve Elden Ödeme Sorusu Testi
+	paymentPayload, _ := json.Marshal(map[string]interface{}{
+		"message": "ödeme yöntemi nasıl ve ödeme elden oluyor mu?",
+	})
+	resp, err = client.Post(ts.URL+"/api/agent/chat", "application/json", bytes.NewBuffer(paymentPayload))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("Agent ödeme sorgusu başarısız: %v", err)
+	}
+
+	json.NewDecoder(resp.Body).Decode(&res)
+	if !strings.Contains(res.Reply, "Ödeme") && !strings.Contains(res.Reply, "Noter") {
+		t.Fatalf("Beklenen ödeme/noter rehberi yanıtı gelmedi: %s", res.Reply)
+	}
+
+	// 5. Satıcıya Mesaj Gönderme Sorusu Testi
+	msgPayload, _ := json.Marshal(map[string]interface{}{
+		"message": "Satıcıya güvenli mesaj nasıl atılır?",
+	})
+	resp, err = client.Post(ts.URL+"/api/agent/chat", "application/json", bytes.NewBuffer(msgPayload))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("Agent mesajlaşma sorgusu başarısız: %v", err)
+	}
+
+	json.NewDecoder(resp.Body).Decode(&res)
+	if !strings.Contains(res.Reply, "Satıcı") && !strings.Contains(res.Reply, "Mesaj") {
+		t.Fatalf("Beklenen satıcı mesajlaşma yanıtı gelmedi: %s", res.Reply)
+	}
+
+	t.Log("🤖 Yapay Zeka OtoDanışman Agent Testleri Başarılı: Karşılama, bütçe, ödeme/noter, satıcı mesajlaşma ve ekspertiz tavsiyeleri kusursuz çalışıyor!")
 }
 
