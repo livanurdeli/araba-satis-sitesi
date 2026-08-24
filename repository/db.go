@@ -10,6 +10,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// ConnectDB PostgreSQL veritabanına bağlanır ve bağlantı havuzunu (*sql.DB) döner
 func ConnectDB() *sql.DB {
 	_ = godotenv.Load()
 
@@ -28,27 +29,5 @@ func ConnectDB() *sql.DB {
 	}
 
 	fmt.Println(" PostgreSQL bağlantısı başarıyla kuruldu!")
-
-	// Tabloların varlığını garanti et
-	initSchema(db)
-
 	return db
-}
-
-func initSchema(db *sql.DB) {
-	schema := `
-	CREATE TABLE IF NOT EXISTS messages (
-		id SERIAL PRIMARY KEY,
-		listing_id INT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
-		sender_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		receiver_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		content TEXT NOT NULL,
-		is_read BOOLEAN NOT NULL DEFAULT FALSE,
-		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-	);
-	CREATE INDEX IF NOT EXISTS idx_messages_listing_id ON messages(listing_id);
-	CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
-	CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);
-	`
-	_, _ = db.Exec(schema)
 }

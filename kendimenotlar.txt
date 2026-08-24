@@ -17,4 +17,10 @@ go.sum ise go.mod içindeki paketlerin hash kodlarını tutuyor. Bu sayede paket
 - **godotenv:** Go'da `.env` dosyasındaki satırları okuyup işletim sisteminin `os.Getenv(...)` fonksiyonu ile erişilebilir hale getiren popüler bir kütüphanedir.
 - **Frontend (Vite):** React tarafında değişkenler `VITE_` önekiyle başlar (örn. `VITE_API_URL`) ve kodda `import.meta.env.VITE_API_URL` şeklinde okunur.
 
+### db/init.sql ile repository/db.go Farkı Nedir?
+- **db/init.sql:** Veritabanının mimari planıdır (Blue-print). Docker veya PostgreSQL ilk kurulurken çalışır ve tüm tabloları (`users`, `listings`, `bids`, `messages`) sıfırdan kurar. Tablo şemalarının tek ve asıl kaynağıdır.
+- **repository/db.go:** Go uygulamasının PostgreSQL sunucusuna fiziksel bağlantıyı açmasını sağlayan (`ConnectDB`) saf bağlantı sağlayıcıdır. Tablo tanımları içermez, sadece bağlantı havuzunu (`*sql.DB`) üretir.
+- **repository/*_repo.go:** `db.go`'nun kurduğu o bağlantıyı kullanarak ilgili tablolara SQL sorguları atan (`UserRepository`, `ListingRepository` vb.) modüllerdir.
+
+
 
