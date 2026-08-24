@@ -55,11 +55,14 @@ func main() {
 	bidRepo := repository.NewBidRepository(db)
 	msgRepo := repository.NewMessageRepository(db)
 
+	agentService := services.NewAIAgentService(listingRepo)
+
 	authHandler := handlers.NewAuthHandler(userRepo)
 	userHandler := handlers.NewUserHandler(userRepo)
 	listingHandler := handlers.NewListingHandler(listingRepo)
 	bidHandler := handlers.NewBidHandler(bidRepo)
 	msgHandler := handlers.NewMessageHandler(msgRepo)
+	agentHandler := handlers.NewAgentHandler(agentService)
 
 	// --- Auth Route'ları ---
 	mux.HandleFunc("POST /api/auth/register", authHandler.Register)
@@ -108,6 +111,9 @@ func main() {
 	mux.HandleFunc("GET /api/messages/conversations", middleware.AuthRequired(msgHandler.GetConversations))
 	mux.HandleFunc("GET /api/messages", middleware.AuthRequired(msgHandler.GetMessages))
 	mux.HandleFunc("GET /api/messages/unread-count", middleware.AuthRequired(msgHandler.GetUnreadCount))
+
+	// --- Yapay Zeka Danışmanı (Agent) Route'u ---
+	mux.HandleFunc("POST /api/agent/chat", agentHandler.Chat)
 
 	// --- React SPA Statik Dosya Sunucusu (Frontend/dist) ---
 	fileServer := http.FileServer(http.Dir("./frontend/dist"))

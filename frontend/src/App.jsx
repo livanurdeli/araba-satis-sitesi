@@ -4,6 +4,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
+import AIAssistantWidget from './components/AIAssistantWidget';
 
 // Sayfalar
 import ListingsPage from './pages/ListingsPage';
@@ -62,6 +63,7 @@ export default function App() {
             </Routes>
           </main>
           <Footer />
+          <AIAssistantWidget />
         </div>
         </NotificationProvider>
       </AuthProvider>

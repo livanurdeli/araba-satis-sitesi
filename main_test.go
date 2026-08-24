@@ -4,11 +4,13 @@ import (
 	"araba-satis-sitesi/handlers"
 	"araba-satis-sitesi/middleware"
 	"araba-satis-sitesi/repository"
+	"araba-satis-sitesi/services"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -22,11 +24,14 @@ func setupTestApp() http.Handler {
 	bidRepo := repository.NewBidRepository(db)
 	msgRepo := repository.NewMessageRepository(db)
 
+	agentService := services.NewAIAgentService(listingRepo)
+
 	authHandler := handlers.NewAuthHandler(userRepo)
 	userHandler := handlers.NewUserHandler(userRepo)
 	listingHandler := handlers.NewListingHandler(listingRepo)
 	bidHandler := handlers.NewBidHandler(bidRepo)
 	msgHandler := handlers.NewMessageHandler(msgRepo)
+	agentHandler := handlers.NewAgentHandler(agentService)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/auth/register", authHandler.Register)
@@ -44,6 +49,7 @@ func setupTestApp() http.Handler {
 	mux.HandleFunc("GET /api/messages/conversations", middleware.AuthRequired(msgHandler.GetConversations))
 	mux.HandleFunc("GET /api/messages", middleware.AuthRequired(msgHandler.GetMessages))
 	mux.HandleFunc("GET /api/messages/unread-count", middleware.AuthRequired(msgHandler.GetUnreadCount))
+	mux.HandleFunc("POST /api/agent/chat", agentHandler.Chat)
 
 	return middleware.EnableCORS(mux)
 }
@@ -401,5 +407,58 @@ func TestMessagingFlow(t *testing.T) {
 	}
 
 	t.Log("🎯 Mesajlaşma Testleri Başarılı: Alıcı-Satıcı mesajlaşma, sohbet listesi, anlık okundu takibi ve bildirim sayıları eksiksiz çalışıyor!")
+}
+
+func TestAIAgentChat(t *testing.T) {
+	app := setupTestApp()
+	ts := httptest.NewServer(app)
+	defer ts.Close()
+
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	// 1. Genel Karşılama / Merhaba Testi
+	payload, _ := json.Marshal(map[string]interface{}{
+		"message": "Merhaba, nasıl yardımcı olabilirsin?",
+	})
+	resp, err := client.Post(ts.URL+"/api/agent/chat", "application/json", bytes.NewBuffer(payload))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("Agent karşılama isteği başarısız: %v, status: %d", err, resp.StatusCode)
+	}
+
+	var res services.AgentResponse
+	json.NewDecoder(resp.Body).Decode(&res)
+	if !strings.Contains(res.Reply, "otopazar") {
+		t.Fatalf("Beklenen asistan karşılama metni dönmedi: %s", res.Reply)
+	}
+
+	// 2. Bütçe ve Araç Arama Testi
+	budgetPayload, _ := json.Marshal(map[string]interface{}{
+		"message": "1.500.000 TL bütçem var hangi arabaları önerirsin?",
+	})
+	resp, err = client.Post(ts.URL+"/api/agent/chat", "application/json", bytes.NewBuffer(budgetPayload))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("Agent bütçe sorgusu başarısız: %v", err)
+	}
+
+	json.NewDecoder(resp.Body).Decode(&res)
+	if !strings.Contains(res.Reply, "1500000") && !strings.Contains(res.Reply, "bütçe") {
+		t.Fatalf("Beklenen bütçe analizi yanıtı gelmedi: %s", res.Reply)
+	}
+
+	// 3. Ekspertiz & Taktik Testi
+	faqPayload, _ := json.Marshal(map[string]interface{}{
+		"message": "Ekspertizde nelere dikkat etmeliyim ve teklif nasıl verilir?",
+	})
+	resp, err = client.Post(ts.URL+"/api/agent/chat", "application/json", bytes.NewBuffer(faqPayload))
+	if err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("Agent ekspertiz sorgusu başarısız: %v", err)
+	}
+
+	json.NewDecoder(resp.Body).Decode(&res)
+	if !strings.Contains(res.Reply, "Ekspertiz") && !strings.Contains(res.Reply, "Şasi") {
+		t.Fatalf("Beklenen ekspertiz rehberi yanıtı gelmedi: %s", res.Reply)
+	}
+
+	t.Log("🤖 Yapay Zeka OtoDanışman Agent Testleri Başarılı: Karşılama, bütçe analizi, araç önerileri ve ekspertiz tavsiyeleri kusursuz çalışıyor!")
 }
 

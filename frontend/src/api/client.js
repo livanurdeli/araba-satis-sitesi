@@ -78,3 +78,8 @@ export const messageAPI = {
   },
   getUnreadCount: () => request('/messages/unread-count', { method: 'GET' }),
 };
+
+export const agentAPI = {
+  chat: (data) => request('/agent/chat', { method: 'POST', body: JSON.stringify(data) }),
+};
+
