@@ -4,14 +4,19 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/joho/godotenv"
 )
 
-var DB *sql.DB
-
 func ConnectDB() *sql.DB {
-	dsn := "postgres://postgres:sifre123@localhost:5432/araba_sitesi?sslmode=disable"
+	_ = godotenv.Load()
+
+	dsn := os.Getenv("DB_DSN")
+	if dsn == "" {
+		dsn = "postgres://postgres:sifre123@localhost:5432/araba_sitesi?sslmode=disable"
+	}
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -23,7 +28,6 @@ func ConnectDB() *sql.DB {
 	}
 
 	fmt.Println(" PostgreSQL bağlantısı başarıyla kuruldu!")
-	DB = db
 
 	// Tabloların varlığını garanti et
 	initSchema(db)

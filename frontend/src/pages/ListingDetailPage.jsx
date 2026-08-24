@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { listingAPI, bidAPI } from '../api/client';
+import { listingAPI, bidAPI, WS_BASE_URL } from '../api/client';
 import BidForm from '../components/BidForm';
 import BidHistory from '../components/BidHistory';
 import CountdownTimer from '../components/CountdownTimer';
@@ -66,7 +66,7 @@ export default function ListingDetailPage() {
     fetchData();
 
     // WebSocket ile Bu İlanı Canlı Dinleme
-    const wsUrl = `ws://localhost:8080/ws?listing_id=${id}`;
+    const wsUrl = `${WS_BASE_URL}?listing_id=${id}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {

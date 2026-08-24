@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { messageAPI, listingAPI } from '../api/client';
+import { messageAPI, listingAPI, WS_BASE_URL } from '../api/client';
 import {
   MessageSquare,
   Send,
@@ -144,7 +144,7 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!user || !user.user_id) return;
 
-    const wsUrl = `ws://localhost:8080/ws?user_id=${user.user_id}`;
+    const wsUrl = `${WS_BASE_URL}?user_id=${user.user_id}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

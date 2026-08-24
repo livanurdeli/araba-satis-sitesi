@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"araba-satis-sitesi/models"
+	"araba-satis-sitesi/middleware"
 	"araba-satis-sitesi/repository"
 	"encoding/json"
 	"net/http"
@@ -11,7 +11,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtKey = []byte("super_gizli_anahtar_123") // Gerçek projelerde bu .env dosyasından okunmalıdır.
+type AuthHandler struct {
+	userRepo repository.UserRepository
+}
+
+func NewAuthHandler(userRepo repository.UserRepository) *AuthHandler {
+	return &AuthHandler{userRepo: userRepo}
+}
 
 // İsteklerden (JSON) gelecek verileri okumak için özel yapılar
 type AuthRequest struct {
@@ -21,7 +27,7 @@ type AuthRequest struct {
 }
 
 // Kayıt Olma Endpoint'i
-func Register(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Sadece POST isteği kabul edilir", http.StatusMethodNotAllowed)
 		return
@@ -46,13 +52,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Veritabanına kaydet
-	query := `INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, created_at`
-	var user models.User
-	user.Email = req.Email
-	user.Name = req.Name
-	user.Role = "buyer"
-
-	err = repository.DB.QueryRow(query, req.Email, string(hashedPassword), req.Name).Scan(&user.ID, &user.CreatedAt)
+	user, err := h.userRepo.Create(req.Email, string(hashedPassword), req.Name)
 	if err != nil {
 		http.Error(w, "Bu email adresi zaten kullanılıyor olabilir", http.StatusConflict)
 		return
@@ -60,11 +60,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user) // Parola alanı JSON'da "-" olduğu için otomatik gizlenir
+	json.NewEncoder(w).Encode(user)
 }
 
 // Giriş Yapma Endpoint'i
-func Login(w http.ResponseWriter, r *http.Request) {
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Sadece POST isteği kabul edilir", http.StatusMethodNotAllowed)
 		return
@@ -81,25 +81,21 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user models.User
-	var storedHash string
-
-	// Email'e göre kullanıcıyı veritabanında bul
-	query := `SELECT id, email, password_hash, role FROM users WHERE email = $1`
-	err := repository.DB.QueryRow(query, req.Email).Scan(&user.ID, &user.Email, &storedHash, &user.Role)
+	// Email'e göre kullanıcıyı repository'den bul
+	user, storedHash, err := h.userRepo.GetByEmail(req.Email)
 	if err != nil {
 		http.Error(w, "Kullanıcı bulunamadı veya e-posta hatalı", http.StatusUnauthorized)
 		return
 	}
 
-	// Gönderilen şifre ile veritabanındaki hashlenmiş şifreyi karşılaştır
+	// Gönderilen şifre ile hashlenmiş şifreyi karşılaştır
 	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(req.Password)); err != nil {
 		http.Error(w, "Yanlış şifre girdiniz", http.StatusUnauthorized)
 		return
 	}
 
-	// JWT Token (Kimlik Kartı) Oluştur
-	expirationTime := time.Now().Add(24 * time.Hour) // Token 1 gün geçerli olacak
+	// JWT Token Oluştur
+	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := jwt.MapClaims{
 		"user_id": user.ID,
 		"email":   user.Email,
@@ -108,13 +104,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
+	tokenString, err := token.SignedString(middleware.GetJWTKey())
 	if err != nil {
 		http.Error(w, "Giriş anahtarı (token) oluşturulamadı", http.StatusInternalServerError)
 		return
 	}
 
-	// Başarılı giriş: Token ve kullanıcı bilgilerini döndür
+	// Başarılı giriş
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"token":   tokenString,

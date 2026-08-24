@@ -12,9 +12,14 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// .env dosyasını yükle (varsa)
+	_ = godotenv.Load()
+
 	// 1. Veritabanına bağlan
 	db := repository.ConnectDB()
 	defer db.Close()
@@ -44,17 +49,34 @@ func main() {
 	uploadsServer := http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads")))
 	mux.Handle("GET /uploads/", uploadsServer)
 
+	// 4. Repository'leri ve Handler'ları Dependency Injection ile oluştur
+	userRepo := repository.NewUserRepository(db)
+	listingRepo := repository.NewListingRepository(db)
+	bidRepo := repository.NewBidRepository(db)
+	msgRepo := repository.NewMessageRepository(db)
+
+	authHandler := handlers.NewAuthHandler(userRepo)
+	userHandler := handlers.NewUserHandler(userRepo)
+	listingHandler := handlers.NewListingHandler(listingRepo)
+	bidHandler := handlers.NewBidHandler(bidRepo)
+	msgHandler := handlers.NewMessageHandler(msgRepo)
+
 	// --- Auth Route'ları ---
-	mux.HandleFunc("POST /api/auth/register", handlers.Register)
-	mux.HandleFunc("POST /api/auth/login", handlers.Login)
+	mux.HandleFunc("POST /api/auth/register", authHandler.Register)
+	mux.HandleFunc("POST /api/auth/login", authHandler.Login)
 
 	// Profil Test Route'u
 	mux.HandleFunc("GET /api/auth/me", middleware.AuthRequired(func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Context().Value(middleware.UserIDKey).(int)
 		role := r.Context().Value(middleware.RoleKey).(string)
 
-		var name, email string
-		_ = repository.DB.QueryRow("SELECT name, email FROM users WHERE id = $1", userID).Scan(&name, &email)
+		u, err := userRepo.GetByID(userID)
+		name := ""
+		email := ""
+		if err == nil && u != nil {
+			name = u.Name
+			email = u.Email
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -67,25 +89,25 @@ func main() {
 	}))
 
 	// --- İlan (Listing) Route'ları ---
-	mux.HandleFunc("GET /api/listings", handlers.GetListings)
-	mux.HandleFunc("GET /api/listings/{id}", handlers.GetListingByID)
-	mux.HandleFunc("POST /api/listings", middleware.AuthRequired(handlers.CreateListing))
-	mux.HandleFunc("PUT /api/listings/{id}", middleware.AuthRequired(handlers.UpdateListing))
-	mux.HandleFunc("DELETE /api/listings/{id}", middleware.AuthRequired(handlers.DeleteListing))
+	mux.HandleFunc("GET /api/listings", listingHandler.GetListings)
+	mux.HandleFunc("GET /api/listings/{id}", listingHandler.GetListingByID)
+	mux.HandleFunc("POST /api/listings", middleware.AuthRequired(listingHandler.CreateListing))
+	mux.HandleFunc("PUT /api/listings/{id}", middleware.AuthRequired(listingHandler.UpdateListing))
+	mux.HandleFunc("DELETE /api/listings/{id}", middleware.AuthRequired(listingHandler.DeleteListing))
 
 	// --- Teklif (Bid) Route'ları ---
-	mux.HandleFunc("POST /api/listings/{id}/bids", middleware.AuthRequired(handlers.PlaceBid))
-	mux.HandleFunc("GET /api/listings/{id}/bids", handlers.GetListingBids)
+	mux.HandleFunc("POST /api/listings/{id}/bids", middleware.AuthRequired(bidHandler.PlaceBid))
+	mux.HandleFunc("GET /api/listings/{id}/bids", bidHandler.GetListingBids)
 
 	// --- Kullanıcı Paneli Route'ları ---
-	mux.HandleFunc("GET /api/users/me/listings", middleware.AuthRequired(handlers.GetMyListings))
-	mux.HandleFunc("GET /api/users/me/bids", middleware.AuthRequired(handlers.GetMyBids))
+	mux.HandleFunc("GET /api/users/me/listings", middleware.AuthRequired(userHandler.GetMyListings))
+	mux.HandleFunc("GET /api/users/me/bids", middleware.AuthRequired(userHandler.GetMyBids))
 
 	// --- Mesajlaşma (Message) Route'ları ---
-	mux.HandleFunc("POST /api/messages", middleware.AuthRequired(handlers.SendMessage))
-	mux.HandleFunc("GET /api/messages/conversations", middleware.AuthRequired(handlers.GetConversations))
-	mux.HandleFunc("GET /api/messages", middleware.AuthRequired(handlers.GetMessages))
-	mux.HandleFunc("GET /api/messages/unread-count", middleware.AuthRequired(handlers.GetUnreadCount))
+	mux.HandleFunc("POST /api/messages", middleware.AuthRequired(msgHandler.SendMessage))
+	mux.HandleFunc("GET /api/messages/conversations", middleware.AuthRequired(msgHandler.GetConversations))
+	mux.HandleFunc("GET /api/messages", middleware.AuthRequired(msgHandler.GetMessages))
+	mux.HandleFunc("GET /api/messages/unread-count", middleware.AuthRequired(msgHandler.GetUnreadCount))
 
 	// --- React SPA Statik Dosya Sunucusu (Frontend/dist) ---
 	fileServer := http.FileServer(http.Dir("./frontend/dist"))
@@ -108,7 +130,14 @@ func main() {
 	// CORS desteğini ekle
 	handlerWithCORS := middleware.EnableCORS(mux)
 
-	port := ":8080"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	if !strings.HasPrefix(port, ":") {
+		port = ":" + port
+	}
+
 	fmt.Printf("🚀 Sunucu http://localhost%s adresinde çalışıyor...\n", port)
 	if err := http.ListenAndServe(port, handlerWithCORS); err != nil {
 		log.Fatalf("Sunucu başlatılamadı: %v\n", err)

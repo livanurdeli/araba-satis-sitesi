@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
-import { userAPI } from '../api/client';
+import { userAPI, WS_BASE_URL } from '../api/client';
 
 const NotificationContext = createContext(null);
 
@@ -99,7 +99,7 @@ export function NotificationProvider({ children }) {
 
   // WebSocket Canlı Akış Bağlantısını Yönet
   useEffect(() => {
-    const wsUrl = `ws://localhost:8080/ws?user_id=${user?.user_id || 0}`;
+    const wsUrl = `${WS_BASE_URL}?user_id=${user?.user_id || 0}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

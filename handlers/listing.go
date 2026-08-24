@@ -2,15 +2,21 @@ package handlers
 
 import (
 	"araba-satis-sitesi/middleware"
-	"araba-satis-sitesi/models"
 	"araba-satis-sitesi/repository"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+type ListingHandler struct {
+	listingRepo repository.ListingRepository
+}
+
+func NewListingHandler(listingRepo repository.ListingRepository) *ListingHandler {
+	return &ListingHandler{listingRepo: listingRepo}
+}
 
 type CreateListingRequest struct {
 	Title         string    `json:"title"`
@@ -32,76 +38,37 @@ type UpdateListingRequest struct {
 	ImageURL    string `json:"image_url"`
 }
 
-func GetListings(w http.ResponseWriter, r *http.Request) {
-	query := `SELECT l.id, l.seller_id, COALESCE(u.name, 'Satıcı') as seller_name, l.title, l.brand, l.model, l.year, l.description, 
-	                 l.starting_price, l.current_price, l.status, l.image_url, l.start_time, l.end_time, l.created_at 
-	          FROM listings l
-	          LEFT JOIN users u ON l.seller_id = u.id
-	          WHERE 1=1`
-	var args []interface{}
-	argIdx := 1
-
-	// Query Parametreleri
+func (h *ListingHandler) GetListings(w http.ResponseWriter, r *http.Request) {
 	brand := r.URL.Query().Get("brand")
-	if brand != "" {
-		query += fmt.Sprintf(" AND LOWER(l.brand) = LOWER($%d)", argIdx)
-		args = append(args, brand)
-		argIdx++
-	}
-
 	status := r.URL.Query().Get("status")
-	if status != "" {
-		query += fmt.Sprintf(" AND l.status = $%d", argIdx)
-		args = append(args, status)
-		argIdx++
-	}
 
+	var minPrice *float64
 	minPriceStr := r.URL.Query().Get("min_price")
 	if minPriceStr != "" {
-		if minPrice, err := strconv.ParseFloat(minPriceStr, 64); err == nil {
-			query += fmt.Sprintf(" AND l.current_price >= $%d", argIdx)
-			args = append(args, minPrice)
-			argIdx++
+		if val, err := strconv.ParseFloat(minPriceStr, 64); err == nil {
+			minPrice = &val
 		}
 	}
 
+	var maxPrice *float64
 	maxPriceStr := r.URL.Query().Get("max_price")
 	if maxPriceStr != "" {
-		if maxPrice, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
-			query += fmt.Sprintf(" AND l.current_price <= $%d", argIdx)
-			args = append(args, maxPrice)
-			argIdx++
+		if val, err := strconv.ParseFloat(maxPriceStr, 64); err == nil {
+			maxPrice = &val
 		}
 	}
 
-	query += " ORDER BY l.created_at DESC"
-
-	rows, err := repository.DB.Query(query, args...)
+	listings, err := h.listingRepo.GetListings(brand, status, minPrice, maxPrice)
 	if err != nil {
 		http.Error(w, "İlanlar veritabanından çekilemedi: "+err.Error(), http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	listings := make([]models.Listing, 0)
-	for rows.Next() {
-		var l models.Listing
-		err := rows.Scan(
-			&l.ID, &l.SellerID, &l.SellerName, &l.Title, &l.Brand, &l.Model, &l.Year, &l.Description,
-			&l.StartingPrice, &l.CurrentPrice, &l.Status, &l.ImageURL, &l.StartTime, &l.EndTime, &l.CreatedAt,
-		)
-		if err != nil {
-			http.Error(w, "Veri işlenirken hata oluştu: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		listings = append(listings, l)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(listings)
 }
 
-func GetListingByID(w http.ResponseWriter, r *http.Request) {
+func (h *ListingHandler) GetListingByID(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -109,18 +76,7 @@ func GetListingByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT l.id, l.seller_id, COALESCE(u.name, 'Satıcı') as seller_name, l.title, l.brand, l.model, l.year, l.description, 
-	                 l.starting_price, l.current_price, l.status, l.image_url, l.start_time, l.end_time, l.created_at 
-	          FROM listings l
-	          LEFT JOIN users u ON l.seller_id = u.id
-	          WHERE l.id = $1`
-
-	var l models.Listing
-	err = repository.DB.QueryRow(query, id).Scan(
-		&l.ID, &l.SellerID, &l.SellerName, &l.Title, &l.Brand, &l.Model, &l.Year, &l.Description,
-		&l.StartingPrice, &l.CurrentPrice, &l.Status, &l.ImageURL, &l.StartTime, &l.EndTime, &l.CreatedAt,
-	)
-
+	listing, err := h.listingRepo.GetByID(id)
 	if err == sql.ErrNoRows {
 		http.Error(w, "İlan bulunamadı", http.StatusNotFound)
 		return
@@ -130,10 +86,10 @@ func GetListingByID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(l)
+	json.NewEncoder(w).Encode(listing)
 }
 
-func CreateListing(w http.ResponseWriter, r *http.Request) {
+func (h *ListingHandler) CreateListing(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
 		http.Error(w, "Yetkilendirme hatası", http.StatusUnauthorized)
@@ -146,7 +102,6 @@ func CreateListing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fotoğraf da dahil olmak üzere zorunlu alan doğrulaması
 	if req.Title == "" || req.Brand == "" || req.Model == "" || req.Year <= 1900 || req.StartingPrice <= 0 || req.ImageURL == "" {
 		http.Error(w, "Başlık, marka, model, geçerli yıl, başlangıç fiyatı ve fotoğraf linki zorunludur", http.StatusBadRequest)
 		return
@@ -157,39 +112,21 @@ func CreateListing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `INSERT INTO listings (
-		seller_id, title, brand, model, year, description, 
-		starting_price, current_price, status, image_url, start_time, end_time
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $7, 'active', $8, NOW(), $9)
-	RETURNING id, current_price, status, image_url, start_time, created_at`
-
-	var l models.Listing
-	l.SellerID = userID
-	l.Title = req.Title
-	l.Brand = req.Brand
-	l.Model = req.Model
-	l.Year = req.Year
-	l.Description = req.Description
-	l.StartingPrice = req.StartingPrice
-	l.ImageURL = req.ImageURL
-	l.EndTime = req.EndTime
-
-	err := repository.DB.QueryRow(
-		query,
-		userID, req.Title, req.Brand, req.Model, req.Year, req.Description, req.StartingPrice, req.ImageURL, req.EndTime,
-	).Scan(&l.ID, &l.CurrentPrice, &l.Status, &l.ImageURL, &l.StartTime, &l.CreatedAt)
-
+	listing, err := h.listingRepo.Create(
+		userID, req.Title, req.Brand, req.Model, req.Year, req.Description,
+		req.StartingPrice, req.ImageURL, req.EndTime,
+	)
 	if err != nil {
-		http.Error(w, "İlan oluşturulamadı: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "İlan veritabanına eklenemedi: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(l)
+	json.NewEncoder(w).Encode(listing)
 }
 
-func UpdateListing(w http.ResponseWriter, r *http.Request) {
+func (h *ListingHandler) UpdateListing(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
 		http.Error(w, "Yetkilendirme hatası", http.StatusUnauthorized)
@@ -200,27 +137,6 @@ func UpdateListing(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		http.Error(w, "Geçersiz ilan ID", http.StatusBadRequest)
-		return
-	}
-
-	var sellerID int
-	var status string
-	err = repository.DB.QueryRow("SELECT seller_id, status FROM listings WHERE id = $1", id).Scan(&sellerID, &status)
-	if err == sql.ErrNoRows {
-		http.Error(w, "İlan bulunamadı", http.StatusNotFound)
-		return
-	} else if err != nil {
-		http.Error(w, "Veritabanı hatası", http.StatusInternalServerError)
-		return
-	}
-
-	if sellerID != userID {
-		http.Error(w, "Bu ilanı güncelleme yetkiniz yok (Sadece ilan sahibi güncelleyebilir)", http.StatusForbidden)
-		return
-	}
-
-	if status != "active" && status != "pending" {
-		http.Error(w, "Süresi dolmuş veya satılmış ilanlar güncellenemez", http.StatusBadRequest)
 		return
 	}
 
@@ -230,20 +146,29 @@ func UpdateListing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updateQuery := `UPDATE listings 
-	                SET title = $1, brand = $2, model = $3, year = $4, description = $5, image_url = COALESCE(NULLIF($6, ''), image_url)
-	                WHERE id = $7`
-	_, err = repository.DB.Exec(updateQuery, req.Title, req.Brand, req.Model, req.Year, req.Description, req.ImageURL, id)
+	if req.Title == "" || req.Brand == "" || req.Model == "" || req.Year <= 1900 {
+		http.Error(w, "Başlık, marka, model ve geçerli yıl zorunludur", http.StatusBadRequest)
+		return
+	}
+
+	listing, err := h.listingRepo.Update(id, userID, req.Title, req.Brand, req.Model, req.Year, req.Description, req.ImageURL)
 	if err != nil {
+		if err.Error() == "unauthorized" {
+			http.Error(w, "Bu ilanı düzenleme yetkiniz yok", http.StatusForbidden)
+			return
+		} else if err == sql.ErrNoRows {
+			http.Error(w, "İlan bulunamadı", http.StatusNotFound)
+			return
+		}
 		http.Error(w, "İlan güncellenemedi: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "İlan başarıyla güncellendi"})
+	json.NewEncoder(w).Encode(listing)
 }
 
-func DeleteListing(w http.ResponseWriter, r *http.Request) {
+func (h *ListingHandler) DeleteListing(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
 		http.Error(w, "Yetkilendirme hatası", http.StatusUnauthorized)
@@ -257,27 +182,21 @@ func DeleteListing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var sellerID int
-	err = repository.DB.QueryRow("SELECT seller_id FROM listings WHERE id = $1", id).Scan(&sellerID)
-	if err == sql.ErrNoRows {
-		http.Error(w, "İlan bulunamadı", http.StatusNotFound)
-		return
-	} else if err != nil {
-		http.Error(w, "Veritabanı hatası", http.StatusInternalServerError)
-		return
-	}
-
-	if sellerID != userID {
-		http.Error(w, "Bu ilanı silme yetkiniz yok", http.StatusForbidden)
-		return
-	}
-
-	_, err = repository.DB.Exec("DELETE FROM listings WHERE id = $1", id)
+	err = h.listingRepo.Delete(id, userID)
 	if err != nil {
-		http.Error(w, "İlan silinemedi", http.StatusInternalServerError)
+		if err.Error() == "unauthorized" {
+			http.Error(w, "Bu ilanı silme yetkiniz yok", http.StatusForbidden)
+			return
+		} else if err == sql.ErrNoRows {
+			http.Error(w, "İlan bulunamadı", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "İlan silinemedi: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "İlan başarıyla silindi"})
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "İlan başarıyla silindi",
+	})
 }

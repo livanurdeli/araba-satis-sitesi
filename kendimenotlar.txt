@@ -10,3 +10,11 @@
 go.mod projenin bağımlılıklarını tutuyor. go get komutu ile eklediğimiz paketler buraya kaydediliyor.
 
 go.sum ise go.mod içindeki paketlerin hash kodlarını tutuyor. Bu sayede paketlerin güvenliği sağlanıyor.
+
+### .env ve godotenv Nedir?
+- **.env:** Veritabanı şifresi, port numarası, JWT gizli anahtarı gibi gizli veya ortama göre değişen ayarları kodun içine yazmak yerine sakladığımız çevre değişkenleri (environment variables) dosyasıdır.
+- **Neden .gitignore'a eklenir?** Şifrelerin GitHub'a sızmasını engellemek için `.env` gizlenir. Takım arkadaşlarının hangi değişkenleri tanımlaması gerektiğini görmesi için örnek olarak `.env.example` paylaşılır.
+- **godotenv:** Go'da `.env` dosyasındaki satırları okuyup işletim sisteminin `os.Getenv(...)` fonksiyonu ile erişilebilir hale getiren popüler bir kütüphanedir.
+- **Frontend (Vite):** React tarafında değişkenler `VITE_` önekiyle başlar (örn. `VITE_API_URL`) ve kodda `import.meta.env.VITE_API_URL` şeklinde okunur.
+
+

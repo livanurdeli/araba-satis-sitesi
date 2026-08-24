@@ -2,30 +2,26 @@ package handlers
 
 import (
 	"araba-satis-sitesi/middleware"
-	"araba-satis-sitesi/models"
 	"araba-satis-sitesi/repository"
 	"araba-satis-sitesi/services"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 )
+
+type BidHandler struct {
+	bidRepo repository.BidRepository
+}
+
+func NewBidHandler(bidRepo repository.BidRepository) *BidHandler {
+	return &BidHandler{bidRepo: bidRepo}
+}
 
 type PlaceBidRequest struct {
 	Amount float64 `json:"amount"`
 }
 
-type BidDetailResponse struct {
-	ID         int       `json:"id"`
-	ListingID  int       `json:"listing_id"`
-	BidderID   int       `json:"bidder_id"`
-	BidderName string    `json:"bidder_name"`
-	Amount     float64   `json:"amount"`
-	CreatedAt  time.Time `json:"created_at"`
-}
-
-func PlaceBid(w http.ResponseWriter, r *http.Request) {
+func (h *BidHandler) PlaceBid(w http.ResponseWriter, r *http.Request) {
 	bidderID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
 		http.Error(w, "Yetkilendirme hatası", http.StatusUnauthorized)
@@ -50,103 +46,33 @@ func PlaceBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := repository.DB.BeginTx(r.Context(), nil)
+	// Repository üzerinden eşzamanlı kilitli teklif verme
+	result, err := h.bidRepo.PlaceBid(r.Context(), listingID, bidderID, req.Amount)
 	if err != nil {
-		http.Error(w, "İşlem başlatılamadı", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
-	var sellerID int
-	var currentPrice float64
-	var status string
-	var endTime time.Time
-
-	lockQuery := `SELECT seller_id, current_price, status, end_time 
-	              FROM listings 
-	              WHERE id = $1 
-	              FOR UPDATE`
-
-	err = tx.QueryRow(lockQuery, listingID).Scan(&sellerID, &currentPrice, &status, &endTime)
-	if err == sql.ErrNoRows {
-		http.Error(w, "İlan bulunamadı", http.StatusNotFound)
-		return
-	} else if err != nil {
-		http.Error(w, "Veritabanı kilitleme hatası: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if status != "active" {
-		http.Error(w, "Bu ilan aktif değil, teklif verilemez", http.StatusBadRequest)
-		return
-	}
-
-	if time.Now().After(endTime) {
-		http.Error(w, "Açık artırma süresi sona ermiş", http.StatusBadRequest)
-		return
-	}
-
-	if sellerID == bidderID {
-		http.Error(w, "Kendi ilanınıza teklif veremezsiniz", http.StatusBadRequest)
-		return
-	}
-
-	if req.Amount <= currentPrice {
-		http.Error(w, "Teklifiniz mevcut en yüksek fiyattan daha yüksek olmalıdır (Mevcut: "+strconv.FormatFloat(currentPrice, 'f', 2, 64)+")", http.StatusBadRequest)
-		return
-	}
-
-	// Önceki lider teklif sahibini tespit et (OUTBID bildirimi için)
-	var previousBidderID int
-	_ = tx.QueryRow(`SELECT bidder_id FROM bids WHERE listing_id = $1 ORDER BY amount DESC LIMIT 1`, listingID).Scan(&previousBidderID)
-
-	var bid models.Bid
-	bid.ListingID = listingID
-	bid.BidderID = bidderID
-	bid.Amount = req.Amount
-
-	insertBidQuery := `INSERT INTO bids (listing_id, bidder_id, amount, created_at) 
-	                  VALUES ($1, $2, $3, NOW()) 
-	                  RETURNING id, created_at`
-	err = tx.QueryRow(insertBidQuery, listingID, bidderID, req.Amount).Scan(&bid.ID, &bid.CreatedAt)
-	if err != nil {
-		http.Error(w, "Teklif kaydedilemedi: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	updatePriceQuery := `UPDATE listings SET current_price = $1 WHERE id = $2`
-	_, err = tx.Exec(updatePriceQuery, req.Amount, listingID)
-	if err != nil {
-		http.Error(w, "İlan fiyatı güncellenemedi: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Teklif veren kullanıcının adını çek
-	var bidderName string
-	_ = tx.QueryRow(`SELECT name FROM users WHERE id = $1`, bidderID).Scan(&bidderName)
-	if bidderName == "" {
-		bidderName = "Alıcı #" + strconv.Itoa(bidderID)
-	}
-
-	if err := tx.Commit(); err != nil {
-		http.Error(w, "İşlem onaylanamadı", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// WebSocket ile anında tüm bağlı kullanıcılara ve önceki lidere canlı yayın yap
-	go services.GlobalHub.BroadcastNewBid(listingID, req.Amount, bidderName, bidderID, previousBidderID)
+	go services.GlobalHub.BroadcastNewBid(
+		listingID,
+		result.CurrentPrice,
+		result.BidderName,
+		bidderID,
+		result.PreviousBidderID,
+	)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message":       "Teklifiniz başarıyla verildi!",
-		"bid":           bid,
-		"current_price": req.Amount,
-		"bidder_name":   bidderName,
+		"bid":           result.Bid,
+		"current_price": result.CurrentPrice,
+		"bidder_name":   result.BidderName,
 	})
 }
 
-func GetListingBids(w http.ResponseWriter, r *http.Request) {
+func (h *BidHandler) GetListingBids(w http.ResponseWriter, r *http.Request) {
 	listingIDStr := r.PathValue("id")
 	listingID, err := strconv.Atoi(listingIDStr)
 	if err != nil {
@@ -154,27 +80,10 @@ func GetListingBids(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT b.id, b.listing_id, b.bidder_id, u.name, b.amount, b.created_at 
-	          FROM bids b 
-	          JOIN users u ON b.bidder_id = u.id 
-	          WHERE b.listing_id = $1 
-	          ORDER BY b.amount DESC, b.created_at DESC`
-
-	rows, err := repository.DB.Query(query, listingID)
+	bids, err := h.bidRepo.GetBidsByListingID(listingID)
 	if err != nil {
 		http.Error(w, "Teklifler getirilemedi: "+err.Error(), http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-
-	bids := make([]BidDetailResponse, 0)
-	for rows.Next() {
-		var b BidDetailResponse
-		if err := rows.Scan(&b.ID, &b.ListingID, &b.BidderID, &b.BidderName, &b.Amount, &b.CreatedAt); err != nil {
-			http.Error(w, "Veri işlenirken hata oluştu", http.StatusInternalServerError)
-			return
-		}
-		bids = append(bids, b)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

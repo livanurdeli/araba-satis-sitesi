@@ -4,13 +4,20 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Bu anahtar auth.go dosyasındaki anahtarla birebir aynı olmalı.
-var jwtKey = []byte("super_gizli_anahtar_123")
+// GetJWTKey ortam değişkenlerinden JWT_SECRET değerini döner (varsayılan fallback ile)
+func GetJWTKey() []byte {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "super_gizli_anahtar_123"
+	}
+	return []byte(secret)
+}
 
 // Context (istek bağlamı) içinde verilerimizi taşımak için özel tipler tanımlıyoruz
 type contextKey string
@@ -44,7 +51,7 @@ func AuthRequired(next http.HandlerFunc) http.HandlerFunc {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("beklenmeyen imza algoritması: %v", token.Header["alg"])
 			}
-			return jwtKey, nil
+			return GetJWTKey(), nil
 		})
 
 		if err != nil || !token.Valid {

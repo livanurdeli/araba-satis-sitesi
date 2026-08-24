@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Plus, User, LogOut, LogIn, Gauge, MessageSquare } from 'lucide-react';
 import NotificationBell from './NotificationBell';
-import { messageAPI } from '../api/client';
+import { messageAPI, WS_BASE_URL } from '../api/client';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -30,7 +30,7 @@ export default function Navbar() {
   useEffect(() => {
     if (!user || !user.user_id) return;
 
-    const wsUrl = `ws://localhost:8080/ws?user_id=${user.user_id}`;
+    const wsUrl = `${WS_BASE_URL}?user_id=${user.user_id}`;
     const ws = new WebSocket(wsUrl);
 
     ws.onmessage = (event) => {
