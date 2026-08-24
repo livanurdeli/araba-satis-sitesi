@@ -1,0 +1,9 @@
+.git
+.env
+.env.example
+node_modules
+frontend/node_modules
+frontend/dist
+uploads/*
+*.md
+kendimenotlar.txt
