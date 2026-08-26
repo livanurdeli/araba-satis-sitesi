@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listingAPI } from '../api/client';
+import { listingAPI, uploadAPI } from '../api/client';
 import { 
   AlertCircle, ArrowRight, UploadCloud, Trash2, 
   Plus, CheckCircle2, Star, Image as ImageIcon 
@@ -83,24 +83,17 @@ export default function CreateListingPage() {
     setError('');
     try {
       // Önce doğrudan sunucuya yüklemeyi dene
-      const token = localStorage.getItem('token');
       const fd = new FormData();
       files.forEach(f => fd.append('files', f));
 
-      const uploadRes = await fetch('http://localhost:8080/api/upload', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: fd,
-      });
-
-      if (uploadRes.ok) {
-        const uploadData = await uploadRes.json();
+      try {
+        const uploadData = await uploadAPI.uploadFiles(fd);
         const urls = uploadData.urls || [uploadData.url];
         setFormData(prev => ({
           ...prev,
           images: [...prev.images, ...urls],
         }));
-      } else {
+      } catch {
         // Sunucu hatasında yerel canvas optimizasyonuna geri dön
         const processed = await Promise.all(files.map(processFile));
         setFormData(prev => ({

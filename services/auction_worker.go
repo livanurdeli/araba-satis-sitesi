@@ -1,51 +1,39 @@
 package services
 
 import (
-	"database/sql"
-	"fmt"
-	"log"
-	"time"
+"araba-satis-sitesi/repository"
+"fmt"
+"log"
+"time"
 )
 
-func StartAuctionWatcher(db *sql.DB, interval time.Duration) {
-	go func() {
-		fmt.Printf("⏱️ Açık artırma zamanlayıcı servisi başlatıldı (Kontrol aralığı: %v)\n", interval)
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
+// StartAuctionWatcher, süresi dolan açık artırmaları periyodik olarak kapatan
+// arka plan görevini başlatır. Somut *sql.DB yerine ListingRepository interface'ine
+// bağımlı olduğu için test edilebilir ve DIP'e uygundur.
+func StartAuctionWatcher(listingRepo repository.ListingRepository, interval time.Duration) {
+go func() {
+fmt.Printf("⏱️ Açık artırma zamanlayıcı servisi başlatıldı (Kontrol aralığı: %v)\n", interval)
+ticker := time.NewTicker(interval)
+defer ticker.Stop()
 
-		for range ticker.C {
-			checkAndCloseExpiredAuctions(db)
-		}
-	}()
+for range ticker.C {
+closeExpiredAuctions(listingRepo)
+}
+}()
 }
 
-func checkAndCloseExpiredAuctions(db *sql.DB) {
-	query := `
-		UPDATE listings 
-		SET status = 'ended' 
-		WHERE status = 'active' AND end_time <= NOW()
-		RETURNING id, title, current_price
-	`
+func closeExpiredAuctions(listingRepo repository.ListingRepository) {
+closed, err := listingRepo.CloseExpiredAuctions()
+if err != nil {
+log.Printf("❌ Zamanlayıcı hatası (ilanlar güncellenemedi): %v\n", err)
+return
+}
 
-	rows, err := db.Query(query)
-	if err != nil {
-		log.Printf("❌ Zamanlayıcı hatası (ilanlar güncellenemedi): %v\n", err)
-		return
-	}
-	defer rows.Close()
+for _, e := range closed {
+log.Printf("🏁 Açık artırma sona erdi: [ID: %d] \"%s\" - Son Fiyat: %.2f TL\n", e.ID, e.Title, e.FinalPrice)
+}
 
-	closedCount := 0
-	for rows.Next() {
-		var id int
-		var title string
-		var finalPrice float64
-		if err := rows.Scan(&id, &title, &finalPrice); err == nil {
-			closedCount++
-			log.Printf("🏁 Açık artırma sona erdi: [ID: %d] \"%s\" - Son Fiyat: %.2f TL\n", id, title, finalPrice)
-		}
-	}
-
-	if closedCount > 0 {
-		log.Printf("📢 Toplam %d adet süresi dolan açık artırma kapatıldı.\n", closedCount)
-	}
+if len(closed) > 0 {
+log.Printf("📢 Toplam %d adet süresi dolan açık artırma kapatıldı.\n", len(closed))
+}
 }

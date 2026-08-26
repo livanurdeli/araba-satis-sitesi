@@ -15,9 +15,7 @@ func ConnectDB() *sql.DB {
 	_ = godotenv.Load()
 
 	dsn := os.Getenv("DB_DSN")
-	if dsn == "" {
-		dsn = "postgres://postgres:sifre123@localhost:5432/araba_sitesi?sslmode=disable"
-	}
+
 
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {

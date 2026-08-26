@@ -26,8 +26,9 @@ func setupTestApp() http.Handler {
 
 	agentService := services.NewAIAgentService(listingRepo)
 
-	authHandler := handlers.NewAuthHandler(userRepo)
-	userHandler := handlers.NewUserHandler(userRepo)
+	authService := services.NewAuthService(userRepo)
+	authHandler := handlers.NewAuthHandler(authService)
+	userHandler := handlers.NewUserHandler(listingRepo, bidRepo)
 	listingHandler := handlers.NewListingHandler(listingRepo)
 	bidHandler := handlers.NewBidHandler(bidRepo)
 	msgHandler := handlers.NewMessageHandler(msgRepo)

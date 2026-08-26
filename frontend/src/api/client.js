@@ -83,3 +83,20 @@ export const agentAPI = {
   chat: (data) => request('/agent/chat', { method: 'POST', body: JSON.stringify(data) }),
 };
 
+export const uploadAPI = {
+  uploadFiles: async (formData) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${BASE_URL}/upload`, {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!response.ok) {
+      throw new Error('Dosya yükleme başarısız');
+    }
+    return await response.json();
+  },
+};
+
+export { BASE_URL };
+

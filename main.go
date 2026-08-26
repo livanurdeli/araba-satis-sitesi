@@ -27,7 +27,6 @@ func main() {
 	fmt.Println(" Veritabanı bağlantısı hazır!")
 
 	// 2. Arka plan açık artırma zamanlayıcısını başlat (30 saniyede bir kontrol eder)
-	services.StartAuctionWatcher(db, 30*time.Second)
 
 	// 3. WebSocket Hub'ını arka planda başlat
 	go services.GlobalHub.Run()
@@ -55,10 +54,13 @@ func main() {
 	bidRepo := repository.NewBidRepository(db)
 	msgRepo := repository.NewMessageRepository(db)
 
+services.StartAuctionWatcher(listingRepo, 30*time.Second)
+
 	agentService := services.NewAIAgentService(listingRepo)
 
-	authHandler := handlers.NewAuthHandler(userRepo)
-	userHandler := handlers.NewUserHandler(userRepo)
+	authService := services.NewAuthService(userRepo)
+	authHandler := handlers.NewAuthHandler(authService)
+	userHandler := handlers.NewUserHandler(listingRepo, bidRepo)
 	listingHandler := handlers.NewListingHandler(listingRepo)
 	bidHandler := handlers.NewBidHandler(bidRepo)
 	msgHandler := handlers.NewMessageHandler(msgRepo)
