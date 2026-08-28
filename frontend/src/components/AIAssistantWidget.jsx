@@ -209,12 +209,12 @@ export default function AIAssistantWidget() {
         <div
           style={{
             position: 'fixed',
-            bottom: '24px',
-            right: '24px',
+            bottom: 'clamp(12px, 2.5vw, 24px)',
+            right: 'clamp(12px, 2.5vw, 24px)',
             width: '380px',
-            maxWidth: 'calc(100vw - 32px)',
+            maxWidth: 'calc(100vw - 24px)',
             height: '540px',
-            maxHeight: 'calc(100vh - 48px)',
+            maxHeight: 'calc(100vh - 36px)',
             background: '#ffffff',
             borderRadius: '16px',
             border: '1px solid var(--border-strong)',

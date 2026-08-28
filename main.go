@@ -51,8 +51,8 @@ func main() {
 	// 4. Repository'leri ve Handler'ları Dependency Injection ile oluştur
 	userRepo := repository.NewUserRepository(db)
 	listingRepo := repository.NewListingRepository(db)
-	bidRepo := repository.NewBidRepository(db)
-	msgRepo := repository.NewMessageRepository(db)
+	bidRepo := repository.NewBidRepository(db, userRepo)
+	msgRepo := repository.NewMessageRepository(db, userRepo)
 
 services.StartAuctionWatcher(listingRepo, 30*time.Second)
 

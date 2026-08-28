@@ -197,9 +197,9 @@ export default function CreateListingPage() {
   return (
     <div className="page-wrapper">
       <div className="container" style={{ maxWidth: '720px' }}>
-        <div className="card" style={{ padding: '32px' }}>
+        <div className="card" style={{ padding: 'clamp(16px, 4vw, 32px)' }}>
           <div style={{ marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
-            <h1 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Yeni Açık Artırma Başlat</h1>
+            <h1 style={{ fontSize: '1.35rem', fontWeight: 800 }}>Yeni Açık Artırma Başlat</h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
               Araç fotoğraflarını yükleyin ve detayları girerek açık artırmanızı başlatın.
             </p>

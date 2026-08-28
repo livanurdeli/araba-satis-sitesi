@@ -86,16 +86,17 @@ func (h *Hub) Run() {
 	}
 }
 
-// BroadcastNewBid yeni bir teklif verildiğinde ilgili ilanı izleyen herkese anında yayın yapar
-func (h *Hub) BroadcastNewBid(listingID int, amount float64, bidderName string, bidderID int, previousBidderID int) {
+// BroadcastNewBid yeni bir teklif verildiğinde ilgili ilanı izleyen herkese ve taraflara anında yayın yapar
+func (h *Hub) BroadcastNewBid(listingID int, amount float64, bidderName string, bidderID int, previousBidderID int, sellerID int, listingTitle string) {
 	msg := WSMessage{
 		Type:      "NEW_BID",
 		ListingID: listingID,
 		Payload: map[string]interface{}{
-			"listing_id":  listingID,
-			"amount":      amount,
-			"bidder_name": bidderName,
-			"bidder_id":   bidderID,
+			"listing_id":    listingID,
+			"listing_title": listingTitle,
+			"amount":        amount,
+			"bidder_name":   bidderName,
+			"bidder_id":     bidderID,
 		},
 	}
 
@@ -116,6 +117,45 @@ func (h *Hub) BroadcastNewBid(listingID int, amount float64, bidderName string, 
 			}
 		}
 
+		// Teklif veren kullanıcıya onay bildirimi gönder
+		if bidderID > 0 && client.UserID == bidderID {
+			bidPlacedMsg, _ := json.Marshal(WSMessage{
+				Type:      "BID_PLACED",
+				ListingID: listingID,
+				UserID:    bidderID,
+				Payload: map[string]interface{}{
+					"listing_id":    listingID,
+					"listing_title": listingTitle,
+					"amount":        amount,
+					"message":       "Teklifiniz başarıyla alındı ve sisteme işlendi!",
+				},
+			})
+			select {
+			case client.Send <- bidPlacedMsg:
+			default:
+			}
+		}
+
+		// İlan sahibine yeni teklif bildirimi gönder
+		if sellerID > 0 && sellerID != bidderID && client.UserID == sellerID {
+			sellerMsg, _ := json.Marshal(WSMessage{
+				Type:      "NEW_BID_SELLER",
+				ListingID: listingID,
+				UserID:    sellerID,
+				Payload: map[string]interface{}{
+					"listing_id":    listingID,
+					"listing_title": listingTitle,
+					"amount":        amount,
+					"bidder_name":   bidderName,
+					"message":       "İlanınıza yeni bir teklif geldi!",
+				},
+			})
+			select {
+			case client.Send <- sellerMsg:
+			default:
+			}
+		}
+
 		// Önceki lider teklif sahibine özel OUTBID (Teklifiniz Geçildi) bildirimi gönder
 		if previousBidderID > 0 && client.UserID == previousBidderID && client.UserID != bidderID {
 			outbidMsg, _ := json.Marshal(WSMessage{
@@ -123,9 +163,10 @@ func (h *Hub) BroadcastNewBid(listingID int, amount float64, bidderName string, 
 				ListingID: listingID,
 				UserID:    previousBidderID,
 				Payload: map[string]interface{}{
-					"listing_id": listingID,
-					"new_amount": amount,
-					"message":    "Teklifiniz geçildi! Başka bir kullanıcı daha yüksek teklif verdi.",
+					"listing_id":    listingID,
+					"listing_title": listingTitle,
+					"new_amount":    amount,
+					"message":       "Teklifiniz geçildi! Başka bir kullanıcı daha yüksek teklif verdi.",
 				},
 			})
 			select {

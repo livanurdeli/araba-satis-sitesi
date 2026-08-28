@@ -142,13 +142,8 @@ export default function ListingDetailPage() {
           <ArrowLeft size={14} /> Tüm İlanlar
         </Link>
 
-        {/* 2-Column Split */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.8fr) minmax(320px, 1.2fr)',
-          gap: '24px',
-          alignItems: 'flex-start',
-        }}>
+        {/* 2-Column Split (Responsive) */}
+        <div className="responsive-detail-grid">
           {/* Left Column: Vehicle Details */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Çoklu Araç Fotoğrafı Galerisi */}
@@ -164,7 +159,7 @@ export default function ListingDetailPage() {
               {/* Ana Büyük Görsel */}
               <div style={{
                 position: 'relative',
-                height: '340px',
+                height: 'clamp(240px, 45vw, 360px)',
                 borderRadius: 'var(--radius-xs)',
                 overflow: 'hidden',
                 background: '#1a1714',
@@ -248,10 +243,8 @@ export default function ListingDetailPage() {
 
               {/* Küçük Resimler Şeridi (Thumbnails) */}
               {images.length > 1 && (
-                <div style={{
-                  display: 'flex',
+                <div className="horizontal-scroll-touch" style={{
                   gap: '8px',
-                  overflowX: 'auto',
                   padding: '4px 0',
                 }}>
                   {images.map((imgUrl, idx) => (
@@ -540,7 +533,11 @@ export default function ListingDetailPage() {
             )}
 
             {/* Bid Form */}
-            <BidForm listing={listing} onBidSuccess={handleBidSuccess} />
+            <BidForm
+              listing={listing}
+              onBidSuccess={handleBidSuccess}
+              highestBidderId={bids && bids.length > 0 ? bids[0].bidder_id : null}
+            />
 
             {/* Bid History */}
             <BidHistory bids={bids} />

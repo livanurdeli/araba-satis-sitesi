@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -21,8 +20,8 @@ func setupTestApp() http.Handler {
 
 	userRepo := repository.NewUserRepository(db)
 	listingRepo := repository.NewListingRepository(db)
-	bidRepo := repository.NewBidRepository(db)
-	msgRepo := repository.NewMessageRepository(db)
+	bidRepo := repository.NewBidRepository(db, userRepo)
+	msgRepo := repository.NewMessageRepository(db, userRepo)
 
 	agentService := services.NewAIAgentService(listingRepo)
 
@@ -161,29 +160,46 @@ func TestCompleteFlow(t *testing.T) {
 		t.Fatalf("Satıcı kendi ilanına teklif verebildi! Beklenen: 400, Gelen: %d", resp.StatusCode)
 	}
 
-	// 6. Eşzamanlı Teklif Testi (Concurrency Test / Race Condition Check)
-	var wg sync.WaitGroup
-	successCount := 0
-	var mu sync.Mutex
-
-	for i := 1; i <= 4; i++ {
-		wg.Add(1)
-		go func(bidIdx int) {
-			defer wg.Done()
-			bidAmount := 520000.0 + float64(bidIdx*10000)
-			bidPayload, _ := json.Marshal(map[string]float64{"amount": bidAmount})
-			bReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/listings/%d/bids", ts.URL, listingID), bytes.NewBuffer(bidPayload))
-			bReq.Header.Set("Authorization", "Bearer "+bidder1Token)
-			bReq.Header.Set("Content-Type", "application/json")
-			bResp, bErr := client.Do(bReq)
-			if bErr == nil && bResp.StatusCode == http.StatusCreated {
-				mu.Lock()
-				successCount++
-				mu.Unlock()
-			}
-		}(i)
+	// 6. Teklif Verme ve Kendi Teklifinin Üstüne Verememe Testi
+	// 6a. Alıcı 1 ilk geçerli teklifi verir (520.000 TL)
+	bid1Body, _ := json.Marshal(map[string]float64{"amount": 520000.0})
+	req, _ = http.NewRequest("POST", fmt.Sprintf("%s/api/listings/%d/bids", ts.URL, listingID), bytes.NewBuffer(bid1Body))
+	req.Header.Set("Authorization", "Bearer "+bidder1Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Alıcı 1 ilk teklifi veremedi! Beklenen: 201, Gelen: %d", resp.StatusCode)
 	}
-	wg.Wait()
+
+	// 6b. Alıcı 1 hemen kendi teklifinin üstüne tekrar teklif vermeyi dener -> 400 Engellenmelidir
+	selfOutbidBody, _ := json.Marshal(map[string]float64{"amount": 530000.0})
+	req, _ = http.NewRequest("POST", fmt.Sprintf("%s/api/listings/%d/bids", ts.URL, listingID), bytes.NewBuffer(selfOutbidBody))
+	req.Header.Set("Authorization", "Bearer "+bidder1Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("Kullanıcı kendi teklifinin üzerine teklif verebildi! Beklenen: 400, Gelen: %d", resp.StatusCode)
+	}
+
+	// 6c. Alıcı 2 daha yüksek bir teklif verir (550.000 TL) -> 201 Başarılı
+	bid2Body, _ := json.Marshal(map[string]float64{"amount": 550000.0})
+	req, _ = http.NewRequest("POST", fmt.Sprintf("%s/api/listings/%d/bids", ts.URL, listingID), bytes.NewBuffer(bid2Body))
+	req.Header.Set("Authorization", "Bearer "+bidder2Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Alıcı 2 teklif veremedi! Beklenen: 201, Gelen: %d", resp.StatusCode)
+	}
+
+	// 6d. Artık Alıcı 1 lider olmadığı için tekrar teklif verebilir (570.000 TL) -> 201 Başarılı
+	bid1AgainBody, _ := json.Marshal(map[string]float64{"amount": 570000.0})
+	req, _ = http.NewRequest("POST", fmt.Sprintf("%s/api/listings/%d/bids", ts.URL, listingID), bytes.NewBuffer(bid1AgainBody))
+	req.Header.Set("Authorization", "Bearer "+bidder1Token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, _ = client.Do(req)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Alıcı 1 liderlik değiştiğinde yeni teklif veremedi! Beklenen: 201, Gelen: %d", resp.StatusCode)
+	}
 
 	// 7. Alıcı 2'nin En Yüksek Kazanan Teklifi Vermesi (600.000 TL)
 	winningBidBody, _ := json.Marshal(map[string]float64{"amount": 600000.0})

@@ -111,12 +111,38 @@ export function NotificationProvider({ children }) {
       try {
         const data = JSON.parse(event.data);
 
-        if (data.type === 'OUTBID') {
+        if (data.type === 'BID_PLACED') {
+          const newNotif = {
+            id: Date.now(),
+            type: 'BID_PLACED',
+            title: '✅ Teklifiniz Alındı!',
+            message: `"${data.payload.listing_title || 'İlan'}" için ${Number(data.payload.amount).toLocaleString('tr-TR')} ₺ teklifiniz başarıyla sisteme işlendi.`,
+            listing_id: data.payload.listing_id,
+            created_at: new Date().toISOString(),
+            read: false,
+          };
+
+          setNotifications(prev => [newNotif, ...prev]);
+          showToast(newNotif.title, newNotif.message);
+        } else if (data.type === 'NEW_BID_SELLER') {
+          const newNotif = {
+            id: Date.now(),
+            type: 'NEW_BID_SELLER',
+            title: '🔔 İlanınıza Yeni Teklif!',
+            message: `"${data.payload.listing_title || 'İlan'}" ilanınıza ${data.payload.bidder_name} tarafından ${Number(data.payload.amount).toLocaleString('tr-TR')} ₺ teklif verildi.`,
+            listing_id: data.payload.listing_id,
+            created_at: new Date().toISOString(),
+            read: false,
+          };
+
+          setNotifications(prev => [newNotif, ...prev]);
+          showToast(newNotif.title, newNotif.message);
+        } else if (data.type === 'OUTBID') {
           const newNotif = {
             id: Date.now(),
             type: 'OUTBID',
             title: '⚠️ Teklifiniz Geçildi!',
-            message: `İzlediğiniz ilanda yeni en yüksek teklif: ${Number(data.payload.new_amount).toLocaleString('tr-TR')} ₺`,
+            message: `"${data.payload.listing_title || 'İzlediğiniz ilan'}" için yeni en yüksek teklif: ${Number(data.payload.new_amount).toLocaleString('tr-TR')} ₺`,
             listing_id: data.payload.listing_id,
             created_at: new Date().toISOString(),
             read: false,
@@ -162,6 +188,22 @@ export function NotificationProvider({ children }) {
     }, 6000);
   };
 
+  const addNotification = (notif) => {
+    const fullNotif = {
+      id: notif.id || Date.now(),
+      type: notif.type || 'SYSTEM',
+      title: notif.title || 'Bildirim',
+      message: notif.message || '',
+      listing_id: notif.listing_id,
+      created_at: notif.created_at || new Date().toISOString(),
+      read: false,
+    };
+    setNotifications(prev => [fullNotif, ...prev]);
+    if (notif.showToast !== false) {
+      showToast(fullNotif.title, fullNotif.message);
+    }
+  };
+
   const markAllAsRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
@@ -179,6 +221,7 @@ export function NotificationProvider({ children }) {
       markAllAsRead,
       clearNotifications,
       showToast,
+      addNotification,
     }}>
       {children}
 
@@ -186,22 +229,23 @@ export function NotificationProvider({ children }) {
       {toast && (
         <div style={{
           position: 'fixed',
-          top: '80px',
-          right: '24px',
+          top: '74px',
+          right: '16px',
           zIndex: 9999,
           background: '#ffffff',
           border: '1px solid var(--border-strong)',
           borderLeft: '4px solid var(--accent-primary)',
           boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
           borderRadius: 'var(--radius-sm)',
-          padding: '14px 18px',
-          maxWidth: '340px',
+          padding: '12px 16px',
+          maxWidth: 'calc(100vw - 32px)',
+          width: '340px',
           animation: 'slideIn 0.3s ease',
         }}>
-          <strong style={{ display: 'block', fontSize: '0.9rem', color: 'var(--text-main)', marginBottom: '4px' }}>
+          <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: '3px' }}>
             {toast.title}
           </strong>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
             {toast.message}
           </p>
         </div>

@@ -76,11 +76,11 @@ export default function ListingsPage() {
           position: 'relative',
           borderRadius: 'var(--radius-lg)',
           overflow: 'hidden',
-          minHeight: '440px',
+          minHeight: '380px',
           display: 'flex',
           alignItems: 'center',
-          padding: '40px 48px',
-          marginBottom: '36px',
+          padding: 'clamp(20px, 4vw, 40px) clamp(16px, 4vw, 48px)',
+          marginBottom: '32px',
           boxShadow: '0 8px 30px rgba(44, 38, 26, 0.06)',
           border: '1px solid var(--border-subtle)',
           background: '#fbf8f0',
@@ -91,21 +91,22 @@ export default function ListingsPage() {
             top: 0,
             right: 0,
             bottom: 0,
-            width: '68%',
+            width: '100%',
+            maxWidth: '68%',
             backgroundImage: "url('https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=1200&auto=format&fit=crop&q=80')",
             backgroundSize: 'cover',
             backgroundPosition: 'center right',
             backgroundRepeat: 'no-repeat',
           }} />
 
-          {/* Yumuşak Krem Gradyan Katmanı (Yazıların net okunması için) */}
+          {/* Yumuşak Krem Gradyan Katmanı (Yazıların mobilde ve masaüstünde net okunması için) */}
           <div style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'linear-gradient(90deg, #fbf8f0 42%, rgba(251, 248, 240, 0.9) 60%, rgba(251, 248, 240, 0.15) 100%)',
+            background: 'linear-gradient(90deg, #fbf8f0 55%, rgba(251, 248, 240, 0.92) 80%, rgba(251, 248, 240, 0.35) 100%)',
           }} />
 
           {/* Ön Plandaki İçerik (Yazılar, Butonlar ve İstatistikler) */}
@@ -113,9 +114,10 @@ export default function ListingsPage() {
             position: 'relative',
             zIndex: 2,
             maxWidth: '560px',
+            width: '100%',
           }}>
             <h1 style={{
-              fontSize: '2.5rem',
+              fontSize: 'clamp(1.6rem, 5vw, 2.4rem)',
               fontWeight: 900,
               lineHeight: 1.15,
               marginBottom: '6px',
@@ -124,34 +126,34 @@ export default function ListingsPage() {
               otopazar ile Hayalindeki<br />Aracı Kazan
             </h1>
             <h2 style={{
-              fontSize: '1.4rem',
+              fontSize: 'clamp(1.1rem, 3vw, 1.35rem)',
               fontWeight: 700,
               color: 'var(--text-muted)',
-              marginBottom: '10px',
+              marginBottom: '8px',
             }}>
               Açık Artırma İlanları
             </h2>
             <p style={{
               color: 'var(--text-muted)',
-              fontSize: '0.95rem',
-              marginBottom: '22px',
+              fontSize: '0.9rem',
+              marginBottom: '20px',
               maxWidth: '440px',
             }}>
               Türkiye'nin Güvenilir Çevrimiçi Araç Açık Artırma Platformu
             </p>
 
             {/* Butonlar */}
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '26px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '22px', flexWrap: 'wrap' }}>
               <button
                 onClick={() => {
                   const el = document.getElementById('listings-grid');
                   if (el) el.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 style={{
-                  padding: '11px 20px',
+                  padding: '10px 18px',
                   fontWeight: 800,
-                  fontSize: '0.9rem',
+                  fontSize: '0.875rem',
                   borderRadius: 'var(--radius-xs)',
                   background: 'var(--accent-primary)',
                   color: '#1a1714',
@@ -162,11 +164,11 @@ export default function ListingsPage() {
 
               <Link
                 to="/create-listing"
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-sm"
                 style={{
-                  padding: '11px 20px',
+                  padding: '10px 18px',
                   fontWeight: 800,
-                  fontSize: '0.9rem',
+                  fontSize: '0.875rem',
                   borderRadius: 'var(--radius-xs)',
                 }}
               >
@@ -174,29 +176,21 @@ export default function ListingsPage() {
               </Link>
             </div>
 
-            {/* İstatistik Kutusu */}
-            <div className="card" style={{
-              padding: '14px 20px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '24px',
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(8px)',
-              borderRadius: 'var(--radius-xs)',
-            }}>
+            {/* İstatistik Kutusu (Responsive) */}
+            <div className="card stats-grid-container">
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '1.15rem', fontWeight: 900 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '1.05rem', fontWeight: 900 }}>
                   <Users size={16} color="var(--accent-primary)" /> 10,000+
                 </div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', fontWeight: 600 }}>Kayıtlı Kullanıcı</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', fontWeight: 600 }}>Kayıtlı Kullanıcı</div>
               </div>
-              <div style={{ borderLeft: '1px solid var(--border-subtle)', paddingLeft: '24px' }}>
-                <div style={{ fontSize: '1.15rem', fontWeight: 900 }}>2,500+</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', fontWeight: 600 }}>Güvenli İşlem</div>
+              <div className="stats-grid-item-border" style={{ paddingLeft: '20px' }}>
+                <div style={{ fontSize: '1.05rem', fontWeight: 900 }}>2,500+</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', fontWeight: 600 }}>Güvenli İşlem</div>
               </div>
-              <div style={{ borderLeft: '1px solid var(--border-subtle)', paddingLeft: '24px' }}>
-                <div style={{ fontSize: '1.15rem', fontWeight: 900 }}>500+</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', fontWeight: 600 }}>Canlı İlan</div>
+              <div className="stats-grid-item-border" style={{ paddingLeft: '20px' }}>
+                <div style={{ fontSize: '1.05rem', fontWeight: 900 }}>500+</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', fontWeight: 600 }}>Canlı İlan</div>
               </div>
             </div>
           </div>
@@ -211,12 +205,7 @@ export default function ListingsPage() {
           background: '#ffffff',
           borderRadius: 'var(--radius-sm)',
         }}>
-          <form onSubmit={handleFilterSubmit} style={{
-            display: 'grid',
-            gridTemplateColumns: '1.2fr 1.2fr 1.2fr 1fr',
-            gap: '14px',
-            alignItems: 'center',
-          }}>
+          <form onSubmit={handleFilterSubmit} className="filter-strip-grid">
             {/* 1. İlan Durumu */}
             <div style={{
               background: 'var(--accent-primary)',
@@ -392,10 +381,8 @@ export default function ListingsPage() {
             Markalara Göre İncele
           </h2>
 
-          <div style={{
-            display: 'flex',
+          <div className="horizontal-scroll-touch" style={{
             gap: '14px',
-            overflowX: 'auto',
             paddingBottom: '10px',
             alignItems: 'center',
           }}>

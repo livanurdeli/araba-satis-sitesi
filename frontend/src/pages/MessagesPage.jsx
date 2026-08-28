@@ -33,9 +33,19 @@ export default function MessagesPage() {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth <= 768);
 
   const messagesEndRef = useRef(null);
   const wsRef = useRef(null);
+
+  // Mobil ekran boyutu takibi
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Otomatik en alta kaydırma
   const scrollToBottom = () => {
@@ -86,8 +96,8 @@ export default function MessagesPage() {
             console.error('İlan bilgisi alınamadı:', e);
           }
         }
-      } else if (!activeConv && data && data.length > 0) {
-        // Varsayılan olarak ilk sohbeti seç
+      } else if (!activeConv && data && data.length > 0 && window.innerWidth > 768) {
+        // Yalnızca masaüstünde varsayılan olarak ilk sohbeti seç (mobilde sohbet listesini göster)
         setActiveConv(data[0]);
       }
     } catch (err) {
@@ -314,25 +324,17 @@ export default function MessagesPage() {
   return (
     <div className="page-wrapper" style={{ padding: '20px 0', background: 'var(--bg-main)' }}>
       <div className="container">
-        {/* Messages Card Box */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '360px 1fr',
-          minHeight: '720px',
-          height: 'calc(100vh - 140px)',
-          background: '#ffffff',
-          borderRadius: 'var(--radius-md)',
-          border: '1px solid var(--border-subtle)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
-          overflow: 'hidden',
-        }}>
+        {/* Messages Card Box (Responsive) */}
+        <div className="responsive-messages-grid">
 
           {/* LEFT PANEL: Conversations Sidebar */}
           <div style={{
-            borderRight: '1px solid var(--border-subtle)',
-            display: 'flex',
+            display: isMobile && activeConv ? 'none' : 'flex',
+            borderRight: isMobile ? 'none' : '1px solid var(--border-subtle)',
             flexDirection: 'column',
             background: 'var(--bg-surface)',
+            height: '100%',
+            overflow: 'hidden',
           }}>
             {/* Header */}
             <div style={{
@@ -493,24 +495,55 @@ export default function MessagesPage() {
           </div>
 
           {/* RIGHT PANEL: Active Chat Room */}
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#ffffff' }}>
+          <div style={{
+            display: isMobile && !activeConv ? 'none' : 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            background: '#ffffff',
+            overflow: 'hidden',
+          }}>
             {activeConv ? (
               <>
                 {/* Chat Top Banner */}
                 <div style={{
-                  padding: '12px 20px',
+                  padding: '12px 16px',
                   borderBottom: '1px solid var(--border-subtle)',
                   background: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '12px',
+                  gap: '10px',
                   boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                  flexWrap: 'wrap',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                    {isMobile && (
+                      <button
+                        onClick={() => {
+                          setActiveConv(null);
+                          setSearchParams({});
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: 'var(--radius-xs)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          flexShrink: 0,
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                        }}
+                        title="Tüm Sohbetler"
+                      >
+                        <ArrowLeft size={15} />
+                        <span>Sohbetler</span>
+                      </button>
+                    )}
+
                     <div style={{
-                      width: '40px',
-                      height: '40px',
+                      width: '38px',
+                      height: '38px',
                       borderRadius: '50%',
                       background: 'var(--accent-primary)',
                       color: '#1a1714',
@@ -518,22 +551,22 @@ export default function MessagesPage() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontWeight: 800,
-                      fontSize: '1rem',
+                      fontSize: '0.95rem',
                       flexShrink: 0,
                     }}>
                       {activeConv.other_user_name ? activeConv.other_user_name[0].toUpperCase() : 'U'}
                     </div>
 
                     <div style={{ minWidth: 0 }}>
-                      <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>{activeConv.other_user_name}</span>
-                        <span className="badge badge-tag" style={{ fontSize: '0.7rem', padding: '2px 6px' }}>
-                          Muhatap #{activeConv.other_user_id}
+                      <h3 style={{ fontSize: '0.95rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activeConv.other_user_name}</span>
+                        <span className="badge badge-tag" style={{ fontSize: '0.68rem', padding: '2px 5px' }}>
+                          #{activeConv.other_user_id}
                         </span>
                       </h3>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
-                        <span>Canlı Bağlantı Aktif</span>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}></span>
+                        <span>Canlı Sohbet</span>
                       </div>
                     </div>
                   </div>

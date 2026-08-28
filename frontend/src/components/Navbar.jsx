@@ -95,8 +95,8 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Center: Ortadaki Araba */}
-        <div style={{ display: 'flex', alignItems: 'center', opacity: 0.9 }}>
+        {/* Center: Ortadaki Araba (Mobilde gizlenir) */}
+        <div className="hide-on-mobile" style={{ display: 'flex', alignItems: 'center', opacity: 0.9 }}>
           <svg width="48" height="26" viewBox="0 0 64 36" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M6 24h52v4H6z" />
             <path d="M14 24l5-12h26l5 12" />
@@ -106,9 +106,10 @@ export default function Navbar() {
         </div>
 
         {/* Right Menu */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <nav className="navbar-mobile-nav" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <Link
             to="/"
+            className="hide-on-mobile"
             style={{
               fontSize: '0.9rem',
               fontWeight: 700,
@@ -120,11 +121,11 @@ export default function Navbar() {
           </Link>
 
           {isAuthenticated ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="navbar-mobile-nav" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {/* Mesajlar Butonu */}
               <Link
                 to="/messages"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm navbar-mobile-btn"
                 style={{
                   position: 'relative',
                   padding: '7px 12px',
@@ -136,7 +137,7 @@ export default function Navbar() {
                 title="Mesajlarım"
               >
                 <MessageSquare size={16} />
-                <span>Mesajlar</span>
+                <span className="hide-text-on-mobile">Mesajlar</span>
                 {unreadMsgCount > 0 && (
                   <span style={{
                     position: 'absolute',
@@ -162,19 +163,29 @@ export default function Navbar() {
 
               <NotificationBell />
 
-              <Link to="/create-listing" className="btn btn-primary btn-sm" style={{ borderRadius: 'var(--radius-xs)' }}>
+              <Link
+                to="/create-listing"
+                className="btn btn-primary btn-sm navbar-mobile-btn"
+                style={{ borderRadius: 'var(--radius-xs)' }}
+                title="İlan Ver"
+              >
                 <Plus size={15} />
-                <span>İlan Ver</span>
+                <span className="hide-text-on-mobile">İlan Ver</span>
               </Link>
               
-              <Link to="/profile" className="btn btn-secondary btn-sm" style={{ borderRadius: 'var(--radius-xs)' }}>
+              <Link
+                to="/profile"
+                className="btn btn-secondary btn-sm navbar-mobile-btn"
+                style={{ borderRadius: 'var(--radius-xs)' }}
+                title="Hesabım"
+              >
                 <User size={15} />
-                <span>Hesabım</span>
+                <span className="hide-text-on-mobile">Hesabım</span>
               </Link>
 
               <button
                 onClick={handleLogout}
-                className="btn btn-outline btn-sm"
+                className="btn btn-outline btn-sm navbar-mobile-btn"
                 title="Çıkış Yap"
                 style={{ padding: '7px 10px', borderRadius: 'var(--radius-xs)' }}
               >
@@ -182,14 +193,14 @@ export default function Navbar() {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="navbar-mobile-nav" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Link
                 to="/login"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm navbar-mobile-btn"
                 style={{
                   borderRadius: 'var(--radius-xs)',
                   border: '1px solid var(--border-subtle)',
-                  padding: '7px 14px',
+                  padding: '7px 12px',
                   fontWeight: 700,
                 }}
               >
@@ -199,10 +210,10 @@ export default function Navbar() {
 
               <Link
                 to="/register"
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm navbar-mobile-btn"
                 style={{
                   borderRadius: 'var(--radius-xs)',
-                  padding: '7px 16px',
+                  padding: '7px 14px',
                   fontWeight: 800,
                   boxShadow: 'none',
                 }}

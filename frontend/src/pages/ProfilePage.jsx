@@ -75,7 +75,7 @@ export default function ProfilePage() {
       <div className="container">
         {/* User Account Header */}
         <div className="card" style={{
-          padding: '24px',
+          padding: 'clamp(16px, 3vw, 24px)',
           marginBottom: '24px',
           display: 'flex',
           justifyContent: 'space-between',

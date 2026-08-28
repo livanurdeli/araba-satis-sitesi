@@ -53,13 +53,15 @@ func (h *BidHandler) PlaceBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// WebSocket ile anında tüm bağlı kullanıcılara ve önceki lidere canlı yayın yap
+	// WebSocket ile anında tüm bağlı kullanıcılara, teklif verene ve satıcıya canlı yayın yap
 	go services.GlobalHub.BroadcastNewBid(
 		listingID,
 		result.CurrentPrice,
 		result.BidderName,
 		bidderID,
 		result.PreviousBidderID,
+		result.SellerID,
+		result.ListingTitle,
 	)
 
 	w.Header().Set("Content-Type", "application/json")

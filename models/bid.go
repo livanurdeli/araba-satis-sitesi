@@ -24,4 +24,6 @@ type PlaceBidResult struct {
 	BidderName       string
 	PreviousBidderID int
 	CurrentPrice     float64
+	ListingTitle     string
+	SellerID         int
 }

@@ -72,6 +72,7 @@ export default function NotificationBell() {
           top: '42px',
           right: '0',
           width: '320px',
+          maxWidth: 'calc(100vw - 28px)',
           background: '#ffffff',
           border: '1px solid var(--border-subtle)',
           borderRadius: 'var(--radius-sm)',
@@ -110,38 +111,45 @@ export default function NotificationBell() {
           </div>
 
           {/* Liste */}
-          <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+          <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
             {notifications.length === 0 ? (
               <div style={{ padding: '30px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                 Henüz yeni bir bildiriminiz yok.
               </div>
             ) : (
-              notifications.map(n => (
-                <Link
-                  key={n.id}
-                  to={n.listing_id ? `/listings/${n.listing_id}` : '#'}
-                  onClick={() => setIsOpen(false)}
-                  style={{
-                    display: 'block',
-                    padding: '12px 16px',
-                    borderBottom: '1px solid var(--border-subtle)',
-                    transition: 'var(--transition-fast)',
-                    background: n.read ? '#ffffff' : '#fefce8',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-surface-elevated)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = n.read ? '#ffffff' : '#fefce8'; }}
-                >
-                  <div style={{ fontSize: '0.825rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '2px' }}>
-                    {n.title}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
-                    {n.message}
-                  </div>
-                  <div style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', marginTop: '4px' }}>
-                    {new Date(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </Link>
-              ))
+              notifications.map(n => {
+                const isWon = n.type === 'AUCTION_WON';
+                const isPlaced = n.type === 'BID_PLACED';
+                const isSeller = n.type === 'NEW_BID_SELLER';
+                const isOutbid = n.type === 'OUTBID';
+
+                return (
+                  <Link
+                    key={n.id}
+                    to={n.listing_id ? `/listings/${n.listing_id}` : '#'}
+                    onClick={() => setIsOpen(false)}
+                    style={{
+                      display: 'block',
+                      padding: '12px 16px',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      transition: 'var(--transition-fast)',
+                      background: n.read ? '#ffffff' : isWon ? '#fefce8' : isPlaced ? '#f0fdf4' : isOutbid ? '#fffbeb' : '#faf5ff',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-surface-elevated)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = n.read ? '#ffffff' : isWon ? '#fefce8' : isPlaced ? '#f0fdf4' : isOutbid ? '#fffbeb' : '#faf5ff'; }}
+                  >
+                    <div style={{ fontSize: '0.825rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '2px' }}>
+                      {n.title}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      {n.message}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-subtle)', marginTop: '4px' }}>
+                      {new Date(n.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </Link>
+                );
+              })
             )}
           </div>
         </div>

@@ -15,11 +15,12 @@ type MessageRepository interface {
 }
 
 type PostgresMessageRepository struct {
-	db *sql.DB
+	db       *sql.DB
+	userRepo UserRepository
 }
 
-func NewMessageRepository(db *sql.DB) MessageRepository {
-	return &PostgresMessageRepository{db: db}
+func NewMessageRepository(db *sql.DB, userRepo UserRepository) MessageRepository {
+	return &PostgresMessageRepository{db: db, userRepo: userRepo}
 }
 
 func (r *PostgresMessageRepository) CreateMessage(listingID int, senderID int, receiverID int, content string) (*models.Message, error) {
@@ -51,17 +52,17 @@ func (r *PostgresMessageRepository) CreateMessage(listingID int, senderID int, r
 	}
 
 	// Alıcı kullanıcının adını al
-	var receiverName string
-	err = r.db.QueryRow("SELECT name FROM users WHERE id = $1", receiverID).Scan(&receiverName)
-	if err == sql.ErrNoRows {
+	receiverUser, err := r.userRepo.GetByID(receiverID)
+	if err != nil || receiverUser == nil {
 		return nil, errors.New("Alıcı kullanıcı bulunamadı")
-	} else if err != nil {
-		return nil, fmt.Errorf("veritabanı hatası: %w", err)
 	}
+	receiverName := receiverUser.Name
 
 	// Gönderen kullanıcının adını al
 	var senderName string
-	_ = r.db.QueryRow("SELECT name FROM users WHERE id = $1", senderID).Scan(&senderName)
+	if senderUser, err := r.userRepo.GetByID(senderID); err == nil && senderUser != nil {
+		senderName = senderUser.Name
+	}
 
 	var msg models.Message
 	msg.ListingID = listingID
