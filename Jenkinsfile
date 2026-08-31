@@ -17,7 +17,6 @@ pipeline {
         stage('2. Docker ile Test & Derleme') {
             steps {
                 echo '🐳 Docker üzerinde frontend ve backend test/derleme aşaması...'
-                // Çok aşamalı Dockerfile ile tüm test ve build Docker daemon üzerinde izole çalışır
                 sh "docker build -t ${DOCKER_IMAGE} -t ${APP_NAME}:latest ."
             }
         }
@@ -26,7 +25,6 @@ pipeline {
             steps {
                 echo '🚀 Docker Compose servisleri güncelleniyor ve başlatılıyor...'
                 sh """
-                    # Mevcut container'ları güncelle ve ayağa kaldır
                     docker compose -f docker-compose.prod.yml down --remove-orphans || true
                     docker compose -f docker-compose.prod.yml up -d --build
                 """
@@ -45,15 +43,11 @@ pipeline {
     }
 
     post {
-        always {
-            echo '🧹 Çalışma alanı temizleniyor...'
-            cleanWs deleteDirs: true, notFailBuild: true
-        }
         success {
-            echo '🎉 Tebrikler! Docker tabanlı CI/CD süreci başarıyla tamamlandı. Uygulama http://localhost:8080 adresinde aktif.'
+            echo '🎉 Tebrikler! Docker tabanlı CI/CD süreci başarıyla tamamlandı. Uygulama http://3.123.160.13 adresinde (Port: 80) aktif.'
         }
         failure {
-            echo '❌ Hata oluştu! Lütfen Docker veya derleme loglarını kontrol edin.'
+            echo '❌ Hata oluştu! Lütfen derleme loglarını kontrol edin.'
         }
     }
 }

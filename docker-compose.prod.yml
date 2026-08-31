@@ -6,7 +6,7 @@ services:
     container_name: araba-sitesi-app
     restart: always
     ports:
-      - "8080:8080"
+      - "80:8080"
     environment:
       - PORT=8080
       - DB_DSN=postgres://postgres:sifre123@postgres:5432/araba_sitesi?sslmode=disable
