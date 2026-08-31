@@ -4,7 +4,7 @@ pipeline {
     environment {
         APP_NAME = 'araba-satis-sitesi'
         DOCKER_IMAGE = "${APP_NAME}:${BUILD_NUMBER}"
-        DOCKER_BUILDKIT = '1'
+        DOCKER_BUILDKIT = '0'
     }
 
     stages {
