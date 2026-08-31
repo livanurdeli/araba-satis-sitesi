@@ -1,5 +1,20 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-export const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined') return `${window.location.origin}/api`;
+  return '/api';
+};
+
+const getWsUrl = () => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  if (typeof window !== 'undefined') {
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProto}//${window.location.host}/ws`;
+  }
+  return 'ws://localhost:8080/ws';
+};
+
+const BASE_URL = getBaseUrl();
+export const WS_BASE_URL = getWsUrl();
 
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token');
