@@ -1,0 +1,49 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: araba-sitesi-app
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_DSN=postgres://postgres:sifre123@postgres:5432/araba_sitesi?sslmode=disable
+      - JWT_SECRET=super_gizli_anahtar_123
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - app_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: araba-sitesi-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: sifre123
+      POSTGRES_DB: araba_sitesi
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d araba_sitesi"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app_network
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  app_network:
+    driver: bridge
