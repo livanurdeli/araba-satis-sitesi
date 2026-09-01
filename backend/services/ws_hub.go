@@ -118,25 +118,6 @@ func (h *Hub) BroadcastNewBid(listingID int, amount float64, bidderName string, 
 			}
 		}
 
-		// Teklif veren kullanıcıya onay bildirimi gönder
-		if bidderID > 0 && client.UserID == bidderID {
-			bidPlacedMsg, _ := json.Marshal(WSMessage{
-				Type:      "BID_PLACED",
-				ListingID: listingID,
-				UserID:    bidderID,
-				Payload: map[string]interface{}{
-					"listing_id":    listingID,
-					"listing_title": listingTitle,
-					"amount":        amount,
-					"message":       "Teklifiniz başarıyla alındı ve sisteme işlendi!",
-				},
-			})
-			select {
-			case client.Send <- bidPlacedMsg:
-			default:
-			}
-		}
-
 		// İlan sahibine yeni teklif bildirimi gönder
 		if sellerID > 0 && sellerID != bidderID && client.UserID == sellerID {
 			sellerMsg, _ := json.Marshal(WSMessage{

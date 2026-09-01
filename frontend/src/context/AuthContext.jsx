@@ -18,7 +18,9 @@ export function AuthProvider({ children }) {
 
       try {
         const me = await authAPI.getMe();
-        setUser(me);
+        if (me) {
+          setUser({ ...me, id: me.id || me.user_id, user_id: me.user_id || me.id });
+        }
       } catch (err) {
         console.error('Oturum doğrulanamadı:', err);
         logout();
@@ -35,6 +37,13 @@ export function AuthProvider({ children }) {
     if (res.token) {
       localStorage.setItem('token', res.token);
       setToken(res.token);
+      if (res.user) {
+        setUser({
+          ...res.user,
+          id: res.user.id || res.user.user_id,
+          user_id: res.user.user_id || res.user.id,
+        });
+      }
       return res;
     }
   };

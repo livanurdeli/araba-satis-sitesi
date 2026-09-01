@@ -28,26 +28,50 @@ export default function Navbar() {
 
   // WebSocket üzerinden yeni mesaj bildirimi dinleme
   useEffect(() => {
-    if (!user || !user.user_id) return;
+    const currentUserId = user?.user_id || user?.id;
+    if (!currentUserId) return;
 
-    const wsUrl = `${WS_BASE_URL}?user_id=${user.user_id}`;
-    const ws = new WebSocket(wsUrl);
+    let ws = null;
+    let reconnectTimeout = null;
+    let isSubscribed = true;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'NEW_MESSAGE') {
-          if (data.payload.receiver_id === user.user_id && location.pathname !== '/messages') {
-            setUnreadMsgCount(prev => prev + 1);
+    const connectWS = () => {
+      if (!isSubscribed) return;
+      const wsUrl = `${WS_BASE_URL}?user_id=${currentUserId}`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'NEW_MESSAGE') {
+            if (data.payload.receiver_id === currentUserId && location.pathname !== '/messages') {
+              setUnreadMsgCount(prev => prev + 1);
+            }
           }
+        } catch (e) {}
+      };
+
+      ws.onclose = () => {
+        if (isSubscribed) {
+          reconnectTimeout = setTimeout(connectWS, 2500);
         }
-      } catch (e) {}
+      };
+
+      ws.onerror = () => {
+        if (ws && ws.readyState === 1) ws.close();
+      };
     };
+
+    connectWS();
 
     return () => {
-      if (ws.readyState === 1) ws.close();
+      isSubscribed = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
+        ws.close();
+      }
     };
-  }, [user?.user_id, location.pathname]);
+  }, [user?.user_id, user?.id, location.pathname]);
 
   const handleLogout = () => {
     logout();

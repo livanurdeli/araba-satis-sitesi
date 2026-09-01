@@ -34,15 +34,24 @@ export function NotificationProvider({ children }) {
         const myBids = await userAPI.getMyBids();
         if (!Array.isArray(myBids)) return;
 
+        // Her ilan için kullanıcının verdiği EN YÜKSEK teklifi al (kendi eski teklifine outbid üretmesin)
+        const highestBidPerListing = {};
+        myBids.forEach(bid => {
+          const listId = Number(bid.listing_id || 0);
+          if (!listId) return;
+          if (!highestBidPerListing[listId] || Number(bid.my_bid_amount) > Number(highestBidPerListing[listId].my_bid_amount)) {
+            highestBidPerListing[listId] = bid;
+          }
+        });
+
         setNotifications(prevNotifications => {
           const updated = [...prevNotifications];
           let hasNewWon = false;
 
-          myBids.forEach(bid => {
+          Object.values(highestBidPerListing).forEach(bid => {
+            const listId = Number(bid.listing_id || 0);
             const isEnded = bid.listing_status === 'ended';
             const isTopBid = Number(bid.my_bid_amount) >= Number(bid.current_price);
-            const listId = Number(bid.listing_id || 0);
-            if (!listId) return;
 
             // 1. Kazanılan İhale Kontrolü
             if (isEnded && isTopBid) {
@@ -65,6 +74,7 @@ export function NotificationProvider({ children }) {
             }
 
             // 2. Geçilen Teklif Kontrolü (Canlı İlanda)
+            // SADECE kullanıcının o ilandaki en yüksek teklifi ilanın güncel fiyatından DÜŞÜKSE outbid bildirimi üret
             if (!isEnded && !isTopBid) {
               const outbidId = `outbid-${listId}-${bid.current_price}`;
               const exists = updated.some(n => n.id === outbidId);
@@ -109,33 +119,20 @@ export function NotificationProvider({ children }) {
 
     const connectWS = () => {
       if (!isSubscribed) return;
-      const wsUrl = `${WS_BASE_URL}?user_id=${user?.user_id || 0}`;
+      const currentUserId = user?.user_id || user?.id || 0;
+      const wsUrl = `${WS_BASE_URL}?user_id=${currentUserId}`;
       ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('⚡ WebSocket Canlı Bildirim Akışı Bağlandı');
+        console.log('⚡ WebSocket Canlı Bildirim Akışı Bağlandı:', currentUserId);
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
 
-          if (data.type === 'BID_PLACED') {
-            const listId = Number(data.listing_id || data.payload?.listing_id || 0);
-            const newNotif = {
-              id: Date.now(),
-              type: 'BID_PLACED',
-              title: '✅ Teklifiniz Alındı!',
-              message: `"${data.payload?.listing_title || 'İlan'}" için ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklifiniz başarıyla sisteme işlendi.`,
-              listing_id: listId,
-              created_at: new Date().toISOString(),
-              read: false,
-            };
-
-            setNotifications(prev => [newNotif, ...prev]);
-            showToast(newNotif.title, newNotif.message, listId);
-          } else if (data.type === 'NEW_BID_SELLER') {
+          if (data.type === 'NEW_BID_SELLER') {
             const listId = Number(data.listing_id || data.payload?.listing_id || 0);
             const newNotif = {
               id: Date.now(),
