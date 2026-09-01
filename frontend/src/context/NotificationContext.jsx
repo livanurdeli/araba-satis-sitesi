@@ -112,12 +112,13 @@ export function NotificationProvider({ children }) {
         const data = JSON.parse(event.data);
 
         if (data.type === 'BID_PLACED') {
+          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
           const newNotif = {
             id: Date.now(),
             type: 'BID_PLACED',
             title: '✅ Teklifiniz Alındı!',
-            message: `"${data.payload.listing_title || 'İlan'}" için ${Number(data.payload.amount).toLocaleString('tr-TR')} ₺ teklifiniz başarıyla sisteme işlendi.`,
-            listing_id: data.payload.listing_id,
+            message: `"${data.payload?.listing_title || 'İlan'}" için ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklifiniz başarıyla sisteme işlendi.`,
+            listing_id: listId,
             created_at: new Date().toISOString(),
             read: false,
           };
@@ -125,12 +126,13 @@ export function NotificationProvider({ children }) {
           setNotifications(prev => [newNotif, ...prev]);
           showToast(newNotif.title, newNotif.message);
         } else if (data.type === 'NEW_BID_SELLER') {
+          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
           const newNotif = {
             id: Date.now(),
             type: 'NEW_BID_SELLER',
             title: '🔔 İlanınıza Yeni Teklif!',
-            message: `"${data.payload.listing_title || 'İlan'}" ilanınıza ${data.payload.bidder_name} tarafından ${Number(data.payload.amount).toLocaleString('tr-TR')} ₺ teklif verildi.`,
-            listing_id: data.payload.listing_id,
+            message: `"${data.payload?.listing_title || 'İlan'}" ilanınıza ${data.payload?.bidder_name || 'Bir alıcı'} tarafından ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklif verildi.`,
+            listing_id: listId,
             created_at: new Date().toISOString(),
             read: false,
           };
@@ -138,12 +140,13 @@ export function NotificationProvider({ children }) {
           setNotifications(prev => [newNotif, ...prev]);
           showToast(newNotif.title, newNotif.message);
         } else if (data.type === 'OUTBID') {
+          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
           const newNotif = {
             id: Date.now(),
             type: 'OUTBID',
             title: '⚠️ Teklifiniz Geçildi!',
-            message: `"${data.payload.listing_title || 'İzlediğiniz ilan'}" için yeni en yüksek teklif: ${Number(data.payload.new_amount).toLocaleString('tr-TR')} ₺`,
-            listing_id: data.payload.listing_id,
+            message: `"${data.payload?.listing_title || 'İzlediğiniz ilan'}" için yeni en yüksek teklif: ${Number(data.payload?.new_amount || 0).toLocaleString('tr-TR')} ₺`,
+            listing_id: listId,
             created_at: new Date().toISOString(),
             read: false,
           };
@@ -151,13 +154,14 @@ export function NotificationProvider({ children }) {
           setNotifications(prev => [newNotif, ...prev]);
           showToast(newNotif.title, newNotif.message);
         } else if (data.type === 'AUCTION_ENDED') {
-          if (user && data.payload.winner_id === user.user_id) {
+          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
+          if (user && data.payload?.winner_id === user.user_id) {
             const newNotif = {
-              id: `won-${data.payload.listing_id}`,
+              id: `won-${listId}`,
               type: 'AUCTION_WON',
               title: '🎉 Açık Artırmayı Kazandınız!',
-              message: `Tebrikler! "${data.payload.listing_title || 'Araç'}" ihalesini ${Number(data.payload.final_price).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
-              listing_id: data.payload.listing_id,
+              message: `Tebrikler! "${data.payload?.listing_title || 'Araç'}" ihalesini ${Number(data.payload?.final_price || 0).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
+              listing_id: listId,
               created_at: new Date().toISOString(),
               read: false,
             };
@@ -174,7 +178,7 @@ export function NotificationProvider({ children }) {
       }
     };
 
-    ws.onerror = () => {};
+    ws.onerror = () => { };
 
     return () => {
       if (ws.readyState === 1) ws.close();

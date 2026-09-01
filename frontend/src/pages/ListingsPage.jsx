@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { listingAPI } from '../api/client';
+import { listingAPI, WS_BASE_URL } from '../api/client';
 import ListingCard from '../components/ListingCard';
 import { 
   Search, RotateCcw, SlidersHorizontal, ChevronDown, 
@@ -18,8 +18,8 @@ export default function ListingsPage() {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
 
-  const fetchListings = async () => {
-    setLoading(true);
+  const fetchListings = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError('');
     try {
       const data = await listingAPI.getAll({
@@ -32,13 +32,53 @@ export default function ListingsPage() {
     } catch (err) {
       setError(err.message || 'İlanlar yüklenemedi.');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchListings();
+    fetchListings(true);
   }, [brand, status]);
+
+  // Canlı WebSocket Bağlantısı: Yeni ilanlar, teklifler ve biten açık artırmalar için anlık güncelleme
+  useEffect(() => {
+    const ws = new WebSocket(WS_BASE_URL);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'NEW_LISTING' && data.payload) {
+          const newListing = data.payload;
+          setListings(prev => {
+            // Eğer ilan zaten listede varsa ekleme
+            if (prev.some(l => l.id === newListing.id)) return prev;
+            return [newListing, ...prev];
+          });
+        } else if (data.type === 'NEW_BID') {
+          setListings(prev => prev.map(l => {
+            if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
+              return { ...l, current_price: data.payload?.amount || data.payload?.current_price || l.current_price };
+            }
+            return l;
+          }));
+        } else if (data.type === 'AUCTION_ENDED') {
+          setListings(prev => prev.map(l => {
+            if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
+              return { ...l, status: 'ended' };
+            }
+            return l;
+          }));
+        }
+      } catch (err) {
+        console.error('ListingsPage WS Hatası:', err);
+      }
+    };
+
+    return () => {
+      if (ws.readyState === 1) ws.close();
+    };
+  }, []);
 
   const handleFilterSubmit = (e) => {
     e.preventDefault();

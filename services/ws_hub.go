@@ -177,6 +177,21 @@ func (h *Hub) BroadcastNewBid(listingID int, amount float64, bidderName string, 
 	}
 }
 
+// BroadcastNewListing yeni bir ilan oluşturulduğunda tüm bağlı istemcilere anında duyurur
+func (h *Hub) BroadcastNewListing(listing interface{}) {
+	msg := WSMessage{
+		Type:    "NEW_LISTING",
+		Payload: listing,
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return
+	}
+
+	h.broadcast <- data
+}
+
 // BroadcastAuctionEnded açık artırma bittiğinde duyurur
 func (h *Hub) BroadcastAuctionEnded(listingID int, winnerID int, winnerName string, finalPrice float64, listingTitle string) {
 	msg := WSMessage{

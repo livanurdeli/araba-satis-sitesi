@@ -3,6 +3,7 @@ package handlers
 import (
 	"araba-satis-sitesi/middleware"
 	"araba-satis-sitesi/repository"
+	"araba-satis-sitesi/services"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -120,6 +121,9 @@ func (h *ListingHandler) CreateListing(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "İlan veritabanına eklenemedi: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Tüm aktif WebSocket istemcilerine yeni ilanı anında yayınla
+	services.GlobalHub.BroadcastNewListing(listing)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
