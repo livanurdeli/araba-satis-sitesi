@@ -7,27 +7,39 @@ export default function Footer() {
   const faqs = [
     {
       id: 1,
-      question: 'Açık artırmada teklif verdiğimde fiyat anında güncellenir mi?',
+      question: 'Verdiğim teklifi iptal edebilir veya geri çekebilir miyim?',
       answer:
-        'Evet! Platformumuz WebSocket canlı yayın motoruyla donatılmıştır. Verdiğiniz teklif milisaniyeler içinde tüm bağlı kullanıcıların ekranında sayfayı yenilemeye gerek kalmadan anında parlar ve güncellenir.',
+        'Hayır. Açık artırmaların güvenilirliğini ve satıcıların mağdur olmamasını sağlamak adına sisteme girilen hiçbir teklif geri çekilemez. Lütfen bütçenize uygun teklifler veriniz.',
     },
     {
       id: 2,
-      question: 'Aynı anda iki kişi teklif verirse çakışma nasıl önlenir?',
+      question: 'Açık artırmayı kazandığımı nasıl anlarım?',
       answer:
-        'Sistemimiz PostgreSQL veritabanı seviyesinde eşzamanlı satır kilidi (SELECT FOR UPDATE) kullanır. Aynı milisaniyede gelen istekler sıraya alınır ve yalnızca geçerli en yüksek teklif kabul edilerek çift harcama veya teklif çakışması %100 engellenir.',
+        'İhale süresi dolduğunda en yüksek teklifi veren kullanıcı sizseniz; ekranınızda anlık bir tebrik bildirimi belirir, sağ üstteki bildirim çanınıza bildirim düşer ve araç profilinizdeki "Kazanılan İhalelerim" sekmesine eklenir.',
     },
     {
       id: 3,
-      question: 'İhaleyi kazandığımda veya araç hakkında sorum olduğunda satıcıyla nasıl görüşürüm?',
+      question: 'Kendi aracımı satışa çıkarmak için ne yapmalıyım?',
       answer:
-        'İlan detay sayfasındaki "Satıcıya Mesaj Gönder" butonuna veya üst menüdeki "Mesajlar" sekmesine tıklayarak satıcıyla gerçek zamanlı olarak doğrudan sohbet edebilir, ekspertiz ve teslimat detaylarını konuşabilirsiniz.',
+        'Üst menüde yer alan "İlan Ver" butonuna tıklayarak aracınızın marka, model, yıl, başlangıç fiyatı, ihale bitiş tarihi ve fotoğraflarını yükleyerek saniyeler içinde aracınızı canlı açık artırmaya açabilirsiniz.',
     },
     {
       id: 4,
-      question: 'Açık artırma süresi bittiğinde ne olur?',
+      question: 'Aracıma gelen teklifleri nereden takip edebilirim?',
       answer:
-        'Arka plandaki otomatik açık artırma izleme servisimiz süresi dolan ihaleyi anında tespit eder, durumu "Tamamlandı" olarak kilitler ve en yüksek teklif sahibini "Resmi Kazanan" ilan ederek iki tarafa da bildirim gönderir.',
+        'Biri aracınıza teklif verdiğinde sağ üstteki zil simgesine ve ekranınıza canlı bildirim gelir. Ayrıca "Hesabım > İlanlarım" sekmesinden aracınızın güncel fiyatını ve tüm teklif geçmişini anlık olarak izleyebilirsiniz.',
+    },
+    {
+      id: 5,
+      question: 'İlanımı yayındayken düzenleyebilir veya silebilir miyim?',
+      answer:
+        'İlanınıza henüz hiç teklif gelmemişse ilanınızı profilinizden dilediğiniz gibi güncelleyebilir veya silebilirsiniz. Ancak teklif verilmiş aktif bir açık artırmanın kuralları, alıcıların hakkını korumak adına kilitlenir.',
+    },
+    {
+      id: 6,
+      question: 'Alıcı ve satıcı site üzerinden nasıl iletişim kurar?',
+      answer:
+        'İlan detay sayfasında bulunan "Satıcıya Mesaj Gönder" butonuna basarak site içi güvenli mesajlaşma panelini kullanabilirsiniz. Sayfayı yenilemenize gerek kalmadan mesajlar anında karşı tarafa iletilir.',
     },
   ];
 
