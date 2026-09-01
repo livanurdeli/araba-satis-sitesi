@@ -1,15 +1,17 @@
 const getBaseUrl = () => {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/api`;
+  }
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  if (typeof window !== 'undefined') return `${window.location.origin}/api`;
   return '/api';
 };
 
 const getWsUrl = () => {
-  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && window.location?.host) {
     const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${wsProto}//${window.location.host}/ws`;
   }
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
   return 'ws://localhost:8080/ws';
 };
 

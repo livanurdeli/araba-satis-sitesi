@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { listingAPI, WS_BASE_URL } from '../api/client';
 import ListingCard from '../components/ListingCard';
@@ -18,17 +18,22 @@ export default function ListingsPage() {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
 
-  const fetchListings = async (showLoading = true) => {
+  const filtersRef = useRef({ brand, status, minPrice, maxPrice });
+  useEffect(() => {
+    filtersRef.current = { brand, status, minPrice, maxPrice };
+  }, [brand, status, minPrice, maxPrice]);
+
+  const fetchListings = async (showLoading = true, currentFilters = filtersRef.current) => {
     if (showLoading) setLoading(true);
     setError('');
     try {
       const data = await listingAPI.getAll({
-        brand,
-        status: status === 'all' ? '' : status,
-        min_price: minPrice,
-        max_price: maxPrice,
+        brand: currentFilters.brand,
+        status: currentFilters.status === 'all' ? '' : currentFilters.status,
+        min_price: currentFilters.minPrice,
+        max_price: currentFilters.maxPrice,
       });
-      setListings(data);
+      setListings(data || []);
     } catch (err) {
       setError(err.message || 'İlanlar yüklenemedi.');
     } finally {
@@ -37,7 +42,7 @@ export default function ListingsPage() {
   };
 
   useEffect(() => {
-    fetchListings(true);
+    fetchListings(true, { brand, status, minPrice, maxPrice });
   }, [brand, status]);
 
   // Canlı WebSocket Bağlantısı: Yeni ilanlar, teklifler ve biten açık artırmalar için anlık güncelleme
@@ -60,7 +65,7 @@ export default function ListingsPage() {
               if (prev.some(l => l.id === newListing.id)) return prev;
               return [newListing, ...prev];
             });
-            fetchListings(false);
+            fetchListings(false, filtersRef.current);
           } else if (data.type === 'NEW_BID') {
             setListings(prev => prev.map(l => {
               if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
@@ -68,7 +73,7 @@ export default function ListingsPage() {
               }
               return l;
             }));
-            fetchListings(false);
+            fetchListings(false, filtersRef.current);
           } else if (data.type === 'AUCTION_ENDED') {
             setListings(prev => prev.map(l => {
               if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
@@ -76,7 +81,7 @@ export default function ListingsPage() {
               }
               return l;
             }));
-            fetchListings(false);
+            fetchListings(false, filtersRef.current);
           }
         } catch (err) {
           console.error('ListingsPage WS Hatası:', err);
