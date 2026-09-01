@@ -60,6 +60,7 @@ export default function ListingsPage() {
               if (prev.some(l => l.id === newListing.id)) return prev;
               return [newListing, ...prev];
             });
+            fetchListings(false);
           } else if (data.type === 'NEW_BID') {
             setListings(prev => prev.map(l => {
               if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
@@ -67,6 +68,7 @@ export default function ListingsPage() {
               }
               return l;
             }));
+            fetchListings(false);
           } else if (data.type === 'AUCTION_ENDED') {
             setListings(prev => prev.map(l => {
               if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
@@ -74,6 +76,7 @@ export default function ListingsPage() {
               }
               return l;
             }));
+            fetchListings(false);
           }
         } catch (err) {
           console.error('ListingsPage WS Hatası:', err);
