@@ -154,12 +154,22 @@ l.Description = description
 l.StartingPrice = startingPrice
 l.EndTime = endTime
 
-err := r.db.QueryRow(query, sellerID, title, brand, model, year, description, startingPrice, imageURL, endTime).
-Scan(&l.ID, &l.CurrentPrice, &l.Status, &l.ImageURL, &l.StartTime, &l.CreatedAt)
-if err != nil {
-return nil, err
-}
-return &l, nil
+	err := r.db.QueryRow(query, sellerID, title, brand, model, year, description, startingPrice, imageURL, endTime).
+		Scan(&l.ID, &l.CurrentPrice, &l.Status, &l.ImageURL, &l.StartTime, &l.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	// Satıcı ismini al ve doldur
+	var sellerName string
+	_ = r.db.QueryRow("SELECT name FROM users WHERE id = $1", sellerID).Scan(&sellerName)
+	if sellerName != "" {
+		l.SellerName = sellerName
+	} else {
+		l.SellerName = "Satıcı"
+	}
+
+	return &l, nil
 }
 
 func (r *PostgresListingRepository) Update(id, sellerID int, title, brand, model string, year int, description string, imageURL string) (*models.Listing, error) {

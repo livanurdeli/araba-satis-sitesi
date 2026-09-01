@@ -78,8 +78,6 @@ func (h *Hub) Run() {
 				select {
 				case client.Send <- message:
 				default:
-					close(client.Send)
-					delete(h.clients, client)
 				}
 			}
 			h.mu.RUnlock()
@@ -171,7 +169,15 @@ func (h *Hub) BroadcastNewListing(listing interface{}) {
 		return
 	}
 
-	h.broadcast <- data
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		select {
+		case client.Send <- data:
+		default:
+		}
+	}
 }
 
 // BroadcastAuctionEnded açık artırma bittiğinde duyurur
@@ -189,7 +195,19 @@ func (h *Hub) BroadcastAuctionEnded(listingID int, winnerID int, winnerName stri
 	}
 
 	data, _ := json.Marshal(msg)
-	h.broadcast <- data
+	if data == nil {
+		return
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients {
+		select {
+		case client.Send <- data:
+		default:
+		}
+	}
 }
 
 // BroadcastNewMessage alıcı ve gönderene yeni mesaj iletimini anlık olarak WebSocket üzerinden gönderir
