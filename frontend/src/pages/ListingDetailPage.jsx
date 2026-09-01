@@ -68,31 +68,57 @@ export default function ListingDetailPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     fetchData();
 
-    // WebSocket ile Bu İlanı Canlı Dinleme
-    const wsUrl = `${WS_BASE_URL}?listing_id=${id}`;
-    const ws = new WebSocket(wsUrl);
+    // WebSocket ile Bu İlanı Canlı Dinleme (Otomatik Yeniden Bağlanma Destekli)
+    let ws = null;
+    let reconnectTimeout = null;
+    let isSubscribed = true;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'NEW_BID' && Number(data.listing_id) === Number(id)) {
-          // Fiyatı ve teklif listesini anında yenile
-          setListing(prev => prev ? { ...prev, current_price: data.payload.amount } : prev);
-          setPriceFlash(true);
-          setTimeout(() => setPriceFlash(false), 2000);
-          
-          // Teklif geçmişini tekrar çek
-          bidAPI.getBids(id).then(freshBids => setBids(freshBids)).catch(() => {});
-        } else if (data.type === 'AUCTION_ENDED' && Number(data.listing_id) === Number(id)) {
-          setListing(prev => prev ? { ...prev, status: 'ended' } : prev);
+    const connectWS = () => {
+      if (!isSubscribed) return;
+      const wsUrl = `${WS_BASE_URL}?listing_id=${id}`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'NEW_BID' && Number(data.listing_id || data.payload?.listing_id) === Number(id)) {
+            // Fiyatı ve teklif listesini anında yenile
+            const newPrice = data.payload?.amount || data.payload?.current_price;
+            if (newPrice) {
+              setListing(prev => prev ? { ...prev, current_price: newPrice } : prev);
+            }
+            setPriceFlash(true);
+            setTimeout(() => setPriceFlash(false), 2000);
+            
+            // Teklif geçmişini tekrar çek
+            bidAPI.getBids(id).then(freshBids => setBids(freshBids)).catch(() => {});
+          } else if (data.type === 'AUCTION_ENDED' && Number(data.listing_id || data.payload?.listing_id) === Number(id)) {
+            setListing(prev => prev ? { ...prev, status: 'ended' } : prev);
+          }
+        } catch (e) {
+          console.error('WS Error:', e);
         }
-      } catch (e) {
-        console.error('WS Error:', e);
-      }
+      };
+
+      ws.onclose = () => {
+        if (isSubscribed) {
+          reconnectTimeout = setTimeout(connectWS, 2000);
+        }
+      };
+
+      ws.onerror = () => {
+        if (ws && ws.readyState === 1) ws.close();
+      };
     };
 
+    connectWS();
+
     return () => {
-      if (ws.readyState === 1) ws.close();
+      isSubscribed = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
+        ws.close();
+      }
     };
   }, [id]);
 

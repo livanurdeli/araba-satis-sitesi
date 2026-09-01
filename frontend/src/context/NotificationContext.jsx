@@ -101,91 +101,112 @@ export function NotificationProvider({ children }) {
     syncUserBidsAndNotifications();
   }, [isAuthenticated, user]);
 
-  // WebSocket Canlı Akış Bağlantısını Yönet
+  // WebSocket Canlı Akış Bağlantısını Yönet (Otomatik Yeniden Bağlanma Destekli)
   useEffect(() => {
-    const wsUrl = `${WS_BASE_URL}?user_id=${user?.user_id || 0}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    let ws = null;
+    let reconnectTimeout = null;
+    let isSubscribed = true;
 
-    ws.onopen = () => {
-      console.log('⚡ WebSocket Canlı Bildirim Akışı Bağlandı');
-    };
+    const connectWS = () => {
+      if (!isSubscribed) return;
+      const wsUrl = `${WS_BASE_URL}?user_id=${user?.user_id || 0}`;
+      ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+      ws.onopen = () => {
+        console.log('⚡ WebSocket Canlı Bildirim Akışı Bağlandı');
+      };
 
-        if (data.type === 'BID_PLACED') {
-          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
-          const newNotif = {
-            id: Date.now(),
-            type: 'BID_PLACED',
-            title: '✅ Teklifiniz Alındı!',
-            message: `"${data.payload?.listing_title || 'İlan'}" için ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklifiniz başarıyla sisteme işlendi.`,
-            listing_id: listId,
-            created_at: new Date().toISOString(),
-            read: false,
-          };
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
 
-          setNotifications(prev => [newNotif, ...prev]);
-          showToast(newNotif.title, newNotif.message, listId);
-        } else if (data.type === 'NEW_BID_SELLER') {
-          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
-          const newNotif = {
-            id: Date.now(),
-            type: 'NEW_BID_SELLER',
-            title: '🔔 İlanınıza Yeni Teklif!',
-            message: `"${data.payload?.listing_title || 'İlan'}" ilanınıza ${data.payload?.bidder_name || 'Bir alıcı'} tarafından ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklif verildi.`,
-            listing_id: listId,
-            created_at: new Date().toISOString(),
-            read: false,
-          };
-
-          setNotifications(prev => [newNotif, ...prev]);
-          showToast(newNotif.title, newNotif.message, listId);
-        } else if (data.type === 'OUTBID') {
-          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
-          const newNotif = {
-            id: Date.now(),
-            type: 'OUTBID',
-            title: '⚠️ Teklifiniz Geçildi!',
-            message: `"${data.payload?.listing_title || 'İzlediğiniz ilan'}" için yeni en yüksek teklif: ${Number(data.payload?.new_amount || 0).toLocaleString('tr-TR')} ₺`,
-            listing_id: listId,
-            created_at: new Date().toISOString(),
-            read: false,
-          };
-
-          setNotifications(prev => [newNotif, ...prev]);
-          showToast(newNotif.title, newNotif.message, listId);
-        } else if (data.type === 'AUCTION_ENDED') {
-          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
-          if (user && data.payload?.winner_id === user.user_id) {
+          if (data.type === 'BID_PLACED') {
+            const listId = Number(data.listing_id || data.payload?.listing_id || 0);
             const newNotif = {
-              id: `won-${listId}`,
-              type: 'AUCTION_WON',
-              title: '🎉 Açık Artırmayı Kazandınız!',
-              message: `Tebrikler! "${data.payload?.listing_title || 'Araç'}" ihalesini ${Number(data.payload?.final_price || 0).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
+              id: Date.now(),
+              type: 'BID_PLACED',
+              title: '✅ Teklifiniz Alındı!',
+              message: `"${data.payload?.listing_title || 'İlan'}" için ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklifiniz başarıyla sisteme işlendi.`,
               listing_id: listId,
               created_at: new Date().toISOString(),
               read: false,
             };
 
-            setNotifications(prev => {
-              const filtered = prev.filter(n => n.id !== newNotif.id);
-              return [newNotif, ...filtered];
-            });
+            setNotifications(prev => [newNotif, ...prev]);
             showToast(newNotif.title, newNotif.message, listId);
+          } else if (data.type === 'NEW_BID_SELLER') {
+            const listId = Number(data.listing_id || data.payload?.listing_id || 0);
+            const newNotif = {
+              id: Date.now(),
+              type: 'NEW_BID_SELLER',
+              title: '🔔 İlanınıza Yeni Teklif!',
+              message: `"${data.payload?.listing_title || 'İlan'}" ilanınıza ${data.payload?.bidder_name || 'Bir alıcı'} tarafından ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklif verildi.`,
+              listing_id: listId,
+              created_at: new Date().toISOString(),
+              read: false,
+            };
+
+            setNotifications(prev => [newNotif, ...prev]);
+            showToast(newNotif.title, newNotif.message, listId);
+          } else if (data.type === 'OUTBID') {
+            const listId = Number(data.listing_id || data.payload?.listing_id || 0);
+            const newNotif = {
+              id: Date.now(),
+              type: 'OUTBID',
+              title: '⚠️ Teklifiniz Geçildi!',
+              message: `"${data.payload?.listing_title || 'İzlediğiniz ilan'}" için yeni en yüksek teklif: ${Number(data.payload?.new_amount || 0).toLocaleString('tr-TR')} ₺`,
+              listing_id: listId,
+              created_at: new Date().toISOString(),
+              read: false,
+            };
+
+            setNotifications(prev => [newNotif, ...prev]);
+            showToast(newNotif.title, newNotif.message, listId);
+          } else if (data.type === 'AUCTION_ENDED') {
+            const listId = Number(data.listing_id || data.payload?.listing_id || 0);
+            if (user && data.payload?.winner_id === user.user_id) {
+              const newNotif = {
+                id: `won-${listId}`,
+                type: 'AUCTION_WON',
+                title: '🎉 Açık Artırmayı Kazandınız!',
+                message: `Tebrikler! "${data.payload?.listing_title || 'Araç'}" ihalesini ${Number(data.payload?.final_price || 0).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
+                listing_id: listId,
+                created_at: new Date().toISOString(),
+                read: false,
+              };
+
+              setNotifications(prev => {
+                const filtered = prev.filter(n => n.id !== newNotif.id);
+                return [newNotif, ...filtered];
+              });
+              showToast(newNotif.title, newNotif.message, listId);
+            }
           }
+        } catch (err) {
+          console.error('WS Mesaj Hatası:', err);
         }
-      } catch (err) {
-        console.error('WS Mesaj Hatası:', err);
-      }
+      };
+
+      ws.onclose = () => {
+        if (isSubscribed) {
+          reconnectTimeout = setTimeout(connectWS, 2000);
+        }
+      };
+
+      ws.onerror = () => {
+        if (ws && ws.readyState === 1) ws.close();
+      };
     };
 
-    ws.onerror = () => { };
+    connectWS();
 
     return () => {
-      if (ws.readyState === 1) ws.close();
+      isSubscribed = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
+        ws.close();
+      }
     };
   }, [user]);
 
