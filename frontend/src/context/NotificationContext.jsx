@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { userAPI, WS_BASE_URL } from '../api/client';
 
@@ -6,6 +7,7 @@ const NotificationContext = createContext(null);
 
 export function NotificationProvider({ children }) {
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState(() => {
     try {
       const saved = localStorage.getItem('otopazar_notifications');
@@ -39,11 +41,13 @@ export function NotificationProvider({ children }) {
           myBids.forEach(bid => {
             const isEnded = bid.listing_status === 'ended';
             const isTopBid = Number(bid.my_bid_amount) >= Number(bid.current_price);
+            const listId = Number(bid.listing_id || 0);
+            if (!listId) return;
 
             // 1. Kazanılan İhale Kontrolü
             if (isEnded && isTopBid) {
-              const notifId = `won-${bid.listing_id}`;
-              const exists = updated.some(n => n.id === notifId || (n.listing_id === bid.listing_id && n.type === 'AUCTION_WON'));
+              const notifId = `won-${listId}`;
+              const exists = updated.some(n => n.id === notifId || (n.listing_id === listId && n.type === 'AUCTION_WON'));
 
               if (!exists) {
                 const wonNotif = {
@@ -51,7 +55,7 @@ export function NotificationProvider({ children }) {
                   type: 'AUCTION_WON',
                   title: '🎉 Açık Artırmayı Kazandınız!',
                   message: `Tebrikler! "${bid.listing_title || 'Araç'}" ihalesini ${Number(bid.my_bid_amount).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
-                  listing_id: bid.listing_id,
+                  listing_id: listId,
                   created_at: bid.bid_created_at || new Date().toISOString(),
                   read: false,
                 };
@@ -62,7 +66,7 @@ export function NotificationProvider({ children }) {
 
             // 2. Geçilen Teklif Kontrolü (Canlı İlanda)
             if (!isEnded && !isTopBid) {
-              const outbidId = `outbid-${bid.listing_id}-${bid.current_price}`;
+              const outbidId = `outbid-${listId}-${bid.current_price}`;
               const exists = updated.some(n => n.id === outbidId);
 
               if (!exists) {
@@ -71,7 +75,7 @@ export function NotificationProvider({ children }) {
                   type: 'OUTBID',
                   title: '⚠️ Teklifiniz Geçildi!',
                   message: `"${bid.listing_title || 'Araç'}" ilanında yeni en yüksek teklif: ${Number(bid.current_price).toLocaleString('tr-TR')} ₺`,
-                  listing_id: bid.listing_id,
+                  listing_id: listId,
                   created_at: new Date().toISOString(),
                   read: false,
                 };
@@ -83,7 +87,7 @@ export function NotificationProvider({ children }) {
           if (hasNewWon && updated.length > 0) {
             const latest = updated[0];
             if (latest.type === 'AUCTION_WON') {
-              showToast(latest.title, latest.message);
+              showToast(latest.title, latest.message, latest.listing_id);
             }
           }
 
@@ -124,7 +128,7 @@ export function NotificationProvider({ children }) {
           };
 
           setNotifications(prev => [newNotif, ...prev]);
-          showToast(newNotif.title, newNotif.message);
+          showToast(newNotif.title, newNotif.message, listId);
         } else if (data.type === 'NEW_BID_SELLER') {
           const listId = Number(data.listing_id || data.payload?.listing_id || 0);
           const newNotif = {
@@ -138,7 +142,7 @@ export function NotificationProvider({ children }) {
           };
 
           setNotifications(prev => [newNotif, ...prev]);
-          showToast(newNotif.title, newNotif.message);
+          showToast(newNotif.title, newNotif.message, listId);
         } else if (data.type === 'OUTBID') {
           const listId = Number(data.listing_id || data.payload?.listing_id || 0);
           const newNotif = {
@@ -152,7 +156,7 @@ export function NotificationProvider({ children }) {
           };
 
           setNotifications(prev => [newNotif, ...prev]);
-          showToast(newNotif.title, newNotif.message);
+          showToast(newNotif.title, newNotif.message, listId);
         } else if (data.type === 'AUCTION_ENDED') {
           const listId = Number(data.listing_id || data.payload?.listing_id || 0);
           if (user && data.payload?.winner_id === user.user_id) {
@@ -170,7 +174,7 @@ export function NotificationProvider({ children }) {
               const filtered = prev.filter(n => n.id !== newNotif.id);
               return [newNotif, ...filtered];
             });
-            showToast(newNotif.title, newNotif.message);
+            showToast(newNotif.title, newNotif.message, listId);
           }
         }
       } catch (err) {
@@ -185,26 +189,27 @@ export function NotificationProvider({ children }) {
     };
   }, [user]);
 
-  const showToast = (title, message) => {
-    setToast({ title, message });
+  const showToast = (title, message, listing_id) => {
+    setToast({ title, message, listing_id });
     setTimeout(() => {
       setToast(null);
     }, 6000);
   };
 
   const addNotification = (notif) => {
+    const listId = Number(notif.listing_id || 0);
     const fullNotif = {
       id: notif.id || Date.now(),
       type: notif.type || 'SYSTEM',
       title: notif.title || 'Bildirim',
       message: notif.message || '',
-      listing_id: notif.listing_id,
+      listing_id: listId,
       created_at: notif.created_at || new Date().toISOString(),
       read: false,
     };
     setNotifications(prev => [fullNotif, ...prev]);
     if (notif.showToast !== false) {
-      showToast(fullNotif.title, fullNotif.message);
+      showToast(fullNotif.title, fullNotif.message, listId);
     }
   };
 
@@ -214,6 +219,7 @@ export function NotificationProvider({ children }) {
 
   const clearNotifications = () => {
     setNotifications([]);
+    localStorage.removeItem('otopazar_notifications');
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -231,27 +237,43 @@ export function NotificationProvider({ children }) {
 
       {/* Ekranın Sağ Üstündeki Canlı Toast Bildirimi */}
       {toast && (
-        <div style={{
-          position: 'fixed',
-          top: '74px',
-          right: '16px',
-          zIndex: 9999,
-          background: '#ffffff',
-          border: '1px solid var(--border-strong)',
-          borderLeft: '4px solid var(--accent-primary)',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '12px 16px',
-          maxWidth: 'calc(100vw - 32px)',
-          width: '340px',
-          animation: 'slideIn 0.3s ease',
-        }}>
-          <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: '3px' }}>
-            {toast.title}
-          </strong>
+        <div 
+          onClick={() => {
+            if (toast.listing_id) {
+              navigate(`/listings/${toast.listing_id}`);
+              setToast(null);
+            }
+          }}
+          style={{
+            position: 'fixed',
+            top: '74px',
+            right: '16px',
+            zIndex: 9999,
+            background: '#ffffff',
+            border: '1px solid var(--border-strong)',
+            borderLeft: '4px solid var(--accent-primary)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '12px 16px',
+            maxWidth: 'calc(100vw - 32px)',
+            width: '340px',
+            animation: 'slideIn 0.3s ease',
+            cursor: toast.listing_id ? 'pointer' : 'default',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <strong style={{ display: 'block', fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: '3px' }}>
+              {toast.title}
+            </strong>
+          </div>
           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>
             {toast.message}
           </p>
+          {toast.listing_id && (
+            <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--accent-primary)', marginTop: '4px', fontWeight: 600 }}>
+              İlanı incelemek için tıklayın →
+            </span>
+          )}
         </div>
       )}
     </NotificationContext.Provider>

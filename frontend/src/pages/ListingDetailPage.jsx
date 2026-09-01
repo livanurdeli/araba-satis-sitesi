@@ -46,6 +46,8 @@ export default function ListingDetailPage() {
   };
 
   const fetchData = async () => {
+    setLoading(true);
+    setError('');
     try {
       const [listingData, bidsData] = await Promise.all([
         listingAPI.getById(id),
@@ -63,6 +65,7 @@ export default function ListingDetailPage() {
   const [priceFlash, setPriceFlash] = useState(false);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     fetchData();
 
     // WebSocket ile Bu İlanı Canlı Dinleme
