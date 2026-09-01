@@ -8,14 +8,12 @@ RUN npm run build
 
 # 2. Aşama: Go Backend Derleme
 FROM golang:alpine AS backend-builder
-WORKDIR /app
-COPY go.mod go.sum ./
+WORKDIR /app/backend
+COPY backend/go.mod backend/go.sum ./
 RUN go mod download
-COPY . ./
-# React build çıktısını frontend/dist konumuna kopyala
-COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+COPY backend/ ./
 # Go uygulamasını statik binary olarak derle
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/server .
 
 # 3. Aşama: Minimal Çalışma Ortamı (Runtime)
 FROM alpine:latest
@@ -26,7 +24,7 @@ RUN apk --no-cache add ca-certificates tzdata
 
 # Derlenen Go binary ve statik frontend dosyalarını al
 COPY --from=backend-builder /app/server .
-COPY --from=backend-builder /app/frontend/dist ./frontend/dist
+COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Resim yüklemeleri için klasör oluştur
 RUN mkdir -p /app/uploads

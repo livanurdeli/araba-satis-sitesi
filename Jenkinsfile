@@ -35,7 +35,7 @@ pipeline {
                       -e POSTGRES_PASSWORD=sifre123 \
                       -e POSTGRES_DB=araba_sitesi \
                       -v postgres_prod_data:/var/lib/postgresql/data \
-                      -v $(pwd)/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro \
+                      -v $(pwd)/backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro \
                       postgres:16-alpine
 
                     # Veritabanının hazır olması için 4 saniye bekle
