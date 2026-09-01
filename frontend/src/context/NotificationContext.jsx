@@ -238,6 +238,7 @@ export function NotificationProvider({ children }) {
       {/* Ekranın Sağ Üstündeki Canlı Toast Bildirimi */}
       {toast && (
         <div 
+          className="notification-toast"
           onClick={() => {
             if (toast.listing_id) {
               navigate(`/listings/${toast.listing_id}`);

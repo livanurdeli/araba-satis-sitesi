@@ -67,19 +67,7 @@ export default function NotificationBell() {
 
       {/* Açılır Bildirim Çekmecesi */}
       {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '42px',
-          right: '0',
-          width: '320px',
-          maxWidth: 'calc(100vw - 28px)',
-          background: '#ffffff',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-sm)',
-          boxShadow: '0 12px 36px rgba(0,0,0,0.12)',
-          zIndex: 1000,
-          overflow: 'hidden',
-        }}>
+        <div className="notification-dropdown">
           {/* Başlık */}
           <div style={{
             padding: '12px 16px',
