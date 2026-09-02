@@ -10,24 +10,25 @@ pipeline {
     stages {
         stage('Docker ile Derleme & İmaj Oluşturma') {
             steps {
-                echo '🐳 Docker üzerinde React Frontend, Go Backend ve Caddy Reverse Proxy derleniyor...'
+                echo '🐳 Docker üzerinde React Frontend ve Go Backend derleniyor...'
                 sh "docker build -t ${DOCKER_IMAGE} -t ${APP_NAME}:latest ."
-                sh "docker build -f Dockerfile.caddy -t araba-satis-sitesi-caddy:${BUILD_NUMBER} -t araba-satis-sitesi-caddy:latest ."
+                echo '🌐 Caddy reverse proxy imajı (Caddyfile gömülü olarak) derleniyor...'
+                sh "docker build -t ${APP_NAME}-caddy:latest -f Dockerfile.caddy ."
             }
         }
 
         stage('Konteynerleri Canlıya Alma') {
             steps {
-                echo '🚀 Uygulama, PostgreSQL ve Caddy Reverse Proxy yayına alınıyor...'
+                echo '🚀 Uygulama ve PostgreSQL konteynerleri yayına alınıyor...'
                 sh '''
                     # Docker ağı oluştur
                     docker network create araba_app_network || true
 
                     # Eski çalışan konteynerleri temizle
-                    docker stop araba-sitesi-caddy araba-sitesi-app araba-sitesi-postgres || true
-                    docker rm araba-sitesi-caddy araba-sitesi-app araba-sitesi-postgres || true
+                    docker stop araba-sitesi-app araba-sitesi-postgres || true
+                    docker rm araba-sitesi-app araba-sitesi-postgres || true
 
-                    # 1. PostgreSQL Veritabanını Başlat (İç Ağ)
+                    # 1. PostgreSQL Veritabanını Başlat
                     docker run -d \
                       --name araba-sitesi-postgres \
                       --restart always \
@@ -42,7 +43,8 @@ pipeline {
                     # Veritabanının hazır olması için 4 saniye bekle
                     sleep 4
 
-                    # 2. Go + React Uygulamasını Başlat (Sadece İç Docker Ağında, Port 8080)
+                    # 2. Go + React Uygulamasını Başlat (Host portuna DOĞRUDAN açılmıyor artık;
+                    #    sadece iç ağdan Caddy tarafından erişilecek)
                     docker run -d \
                       --name araba-sitesi-app \
                       --restart always \
@@ -53,16 +55,19 @@ pipeline {
                       -v uploads_prod_data:/app/uploads \
                       ${APP_NAME}:latest
 
-                    # 3. Caddy Reverse Proxy Başlat (Caddyfile imajın içine gömülüdür, host mount gerekmez)
+                    # 3. Caddy Reverse Proxy'yi güncel imajla yeniden başlat
+                    #    (Caddyfile artık imajın içine gömülü, host path bind-mount YOK)
+                    docker stop araba-sitesi-caddy || true
+                    docker rm araba-sitesi-caddy || true
                     docker run -d \
                       --name araba-sitesi-caddy \
                       --restart always \
                       --network araba_app_network \
                       -p 80:80 \
                       -p 443:443 \
-                      -v caddy_prod_data:/data \
-                      -v caddy_prod_config:/config \
-                      araba-satis-sitesi-caddy:latest
+                      -v caddy_data:/data \
+                      -v caddy_config:/config \
+                      ${APP_NAME}-caddy:latest
                 '''
             }
         }
