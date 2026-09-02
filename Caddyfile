@@ -37,7 +37,7 @@
 
     # 4. Uygulama & WebSocket Reverse Proxy
     # Caddy, WebSocket (Upgrade / Connection) başlıklarını otomatik olarak algılar ve iletir.
-    reverse_proxy app:8080 {
+    reverse_proxy araba-sitesi-app:8080 {
         # Backend bağlantı ve yanıt zaman aşımları
         transport http {
             read_buffer 8192

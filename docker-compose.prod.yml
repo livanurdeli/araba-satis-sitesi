@@ -1,12 +1,28 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: araba-sitesi-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    networks:
+      - app_network
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: araba-sitesi-app
     restart: always
-    ports:
-      - "80:8080"
+    expose:
+      - "8080"
     environment:
       - PORT=8080
       - DB_DSN=postgres://postgres:sifre123@postgres:5432/araba_sitesi?sslmode=disable
@@ -43,6 +59,8 @@ services:
 volumes:
   postgres_data:
   uploads_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   app_network:
