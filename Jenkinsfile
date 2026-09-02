@@ -10,8 +10,9 @@ pipeline {
     stages {
         stage('Docker ile Derleme & İmaj Oluşturma') {
             steps {
-                echo '🐳 Docker üzerinde React Frontend ve Go Backend derleniyor...'
+                echo '🐳 Docker üzerinde React Frontend, Go Backend ve Caddy Reverse Proxy derleniyor...'
                 sh "docker build -t ${DOCKER_IMAGE} -t ${APP_NAME}:latest ."
+                sh "docker build -f Dockerfile.caddy -t araba-satis-sitesi-caddy:${BUILD_NUMBER} -t araba-satis-sitesi-caddy:latest ."
             }
         }
 
@@ -52,17 +53,16 @@ pipeline {
                       -v uploads_prod_data:/app/uploads \
                       ${APP_NAME}:latest
 
-                    # 3. Caddy Reverse Proxy Başlat (Host Port 80 ve 443'ü Caddy Yönetecek)
+                    # 3. Caddy Reverse Proxy Başlat (Caddyfile imajın içine gömülüdür, host mount gerekmez)
                     docker run -d \
                       --name araba-sitesi-caddy \
                       --restart always \
                       --network araba_app_network \
                       -p 80:80 \
                       -p 443:443 \
-                      -v $(pwd)/Caddyfile:/etc/caddy/Caddyfile:ro \
                       -v caddy_prod_data:/data \
                       -v caddy_prod_config:/config \
-                      caddy:2-alpine
+                      araba-satis-sitesi-caddy:latest
                 '''
             }
         }

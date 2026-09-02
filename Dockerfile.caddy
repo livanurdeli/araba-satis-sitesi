@@ -1,0 +1,4 @@
+FROM caddy:2-alpine
+
+# Caddyfile'ı build aşamasında doğrudan imajın içine kopyala
+COPY Caddyfile /etc/caddy/Caddyfile
