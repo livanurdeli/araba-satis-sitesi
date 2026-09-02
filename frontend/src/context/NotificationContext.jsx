@@ -132,23 +132,7 @@ export function NotificationProvider({ children }) {
         try {
           const data = JSON.parse(event.data);
 
-          if (data.type === 'NEW_LISTING' && data.payload) {
-            const listId = Number(data.payload?.id || 0);
-            const isMyListing = user && (data.payload?.seller_id === user.user_id || data.payload?.seller_id === user.id);
-            if (!isMyListing) {
-              const newNotif = {
-                id: Date.now(),
-                type: 'NEW_LISTING',
-                title: '🚗 Yeni Açık Artırma İlanı!',
-                message: `"${data.payload?.title || 'Yeni bir araç'}" yayına girdi! Başlangıç: ${Number(data.payload?.starting_price || 0).toLocaleString('tr-TR')} ₺`,
-                listing_id: listId,
-                created_at: new Date().toISOString(),
-                read: false,
-              };
-              setNotifications(prev => [newNotif, ...prev]);
-              showToast(newNotif.title, newNotif.message, listId);
-            }
-          } else if (data.type === 'NEW_BID_SELLER') {
+          if (data.type === 'NEW_BID_SELLER') {
             const listId = Number(data.listing_id || data.payload?.listing_id || 0);
             const newNotif = {
               id: Date.now(),
