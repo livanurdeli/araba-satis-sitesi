@@ -1,0 +1,91 @@
+# ==============================================================================
+# Otopazar - Caddyfile (Modern Reverse Proxy & SSL Configuration)
+# ==============================================================================
+
+# Global Ayarlar
+{
+    # Otomatik TLS/HTTPS yönetim ayarları
+    # email admin@otopazar.com # Let's Encrypt bildirimleri için (isteğe bağlı)
+    admin off # Dahili yönetim API'sini kapat
+}
+
+# ------------------------------------------------------------------------------
+# 1. IP Tabanlı veya Yerel Çalışma (HTTP :80)
+# ------------------------------------------------------------------------------
+:80 {
+    # 1. Gzip ve Zstandard ile Anında Sıkıştırma (Performans & Hız)
+    encode zstd gzip
+
+    # 2. Güvenlik Başlıkları (Security Headers)
+    header {
+        # Clickjacking koruması
+        X-Frame-Options "SAMEORIGIN"
+        # MIME type koklama koruması
+        X-Content-Type-Options "nosniff"
+        # XSS filtreleme
+        X-XSS-Protection "1; mode=block"
+        # Referrer politikası
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Server bilgisini gizle
+        -Server
+    }
+
+    # 3. Yüklenen Medya Dosyaları Boyut Limiti (Maksimum 25MB)
+    request_body {
+        max_size 25MB
+    }
+
+    # 4. Uygulama & WebSocket Reverse Proxy
+    # Caddy, WebSocket (Upgrade / Connection) başlıklarını otomatik olarak algılar ve iletir.
+    reverse_proxy app:8080 {
+        # Backend bağlantı ve yanıt zaman aşımları
+        transport http {
+            read_buffer 8192
+        }
+
+        # İstemci IP ve Proxy Başlıkları
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # 5. Erişim ve Hata Logları
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# ------------------------------------------------------------------------------
+# 2. Alan Adı (Domain) ile Otomatik HTTPS Örneği (İleride Domain Bağlandığında)
+# ------------------------------------------------------------------------------
+# otopazar.com, www.otopazar.com {
+#     encode zstd gzip
+#
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+#         X-Frame-Options "SAMEORIGIN"
+#         X-Content-Type-Options "nosniff"
+#         -Server
+#     }
+#
+#     request_body {
+#         max_size 25MB
+#     }
+#
+#     reverse_proxy app:8080 {
+#         header_up Host {host}
+#         header_up X-Real-IP {remote_host}
+#         header_up X-Forwarded-For {remote_host}
+#         header_up X-Forwarded-Proto {scheme}
+#     }
+#
+#     log {
+#         output file /var/log/caddy/access.log {
+#             roll_size 10mb
+#             roll_keep 5
+#         }
+#     }
+# }
