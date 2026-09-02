@@ -323,10 +323,6 @@ export default function ListingDetailPage() {
               </h1>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--text-subtle)', fontSize: '0.825rem' }}>
-                <span>İlan No: #{listing.id}</span>
-                <span>•</span>
-                <span>Satıcı ID: #{listing.seller_id}</span>
-                <span>•</span>
                 <span>Yayınlanma: {new Date(listing.created_at).toLocaleDateString('tr-TR')}</span>
               </div>
             </div>
@@ -398,7 +394,7 @@ export default function ListingDetailPage() {
                       {listing.seller_name || 'Satıcı'}
                     </h4>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-subtle)' }}>
-                      Doğrulanmış İlan Sahibi • Satıcı ID #{listing.seller_id}
+                      Doğrulanmış İlan Sahibi
                     </span>
                   </div>
                 </div>

@@ -38,7 +38,7 @@ export default function BidHistory({ bids }) {
             >
               <div>
                 <div style={{ fontWeight: 700, fontSize: '0.875rem', color: isHighest ? '#854d0e' : 'var(--text-main)' }}>
-                  {bid.bidder_name || `Alıcı #${bid.bidder_id}`} {isHighest && '• En Yüksek'}
+                  {bid.bidder_name || 'Alıcı'} {isHighest && '• En Yüksek'}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                   <Clock size={11} />

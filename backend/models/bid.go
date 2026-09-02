@@ -12,8 +12,6 @@ type Bid struct {
 
 type BidDetailResponse struct {
 	ID         int       `json:"id"`
-	ListingID  int       `json:"listing_id"`
-	BidderID   int       `json:"bidder_id"`
 	BidderName string    `json:"bidder_name"`
 	Amount     float64   `json:"amount"`
 	CreatedAt  time.Time `json:"created_at"`

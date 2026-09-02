@@ -116,27 +116,27 @@ func (r *PostgresBidRepository) PlaceBid(ctx context.Context, listingID int, bid
 }
 
 func (r *PostgresBidRepository) GetBidsByListingID(listingID int) ([]models.BidDetailResponse, error) {
-query := `SELECT b.id, b.listing_id, b.bidder_id, u.name, b.amount, b.created_at 
-          FROM bids b 
-          JOIN users u ON b.bidder_id = u.id 
-          WHERE b.listing_id = $1 
-          ORDER BY b.amount DESC, b.created_at DESC`
+	query := `SELECT b.id, u.name, b.amount, b.created_at 
+	          FROM bids b 
+	          JOIN users u ON b.bidder_id = u.id 
+	          WHERE b.listing_id = $1 
+	          ORDER BY b.amount DESC, b.created_at DESC`
 
-rows, err := r.db.Query(query, listingID)
-if err != nil {
-return nil, err
-}
-defer rows.Close()
+	rows, err := r.db.Query(query, listingID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-bids := make([]models.BidDetailResponse, 0)
-for rows.Next() {
-var b models.BidDetailResponse
-if err := rows.Scan(&b.ID, &b.ListingID, &b.BidderID, &b.BidderName, &b.Amount, &b.CreatedAt); err != nil {
-return nil, err
-}
-bids = append(bids, b)
-}
-return bids, nil
+	bids := make([]models.BidDetailResponse, 0)
+	for rows.Next() {
+		var b models.BidDetailResponse
+		if err := rows.Scan(&b.ID, &b.BidderName, &b.Amount, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		bids = append(bids, b)
+	}
+	return bids, nil
 }
 
 // GetByBidderID, bir kullanıcının verdiği tüm tekliflerin geçmişini döner.
