@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { userAPI, listingAPI, WS_BASE_URL } from '../api/client';
+import { userAPI, listingAPI } from '../api/client';
+import { realtimeManager } from '../api/realtimeManager';
 import { 
   Plus, Trash2, ExternalLink, Clock, 
   TrendingUp, AlertCircle, Award, MessageSquare, CarFront, User as UserIcon, Shield
@@ -59,71 +60,43 @@ export default function ProfilePage() {
     fetchProfileData();
 
     const currentUserId = user?.user_id || user?.id;
-    let ws = null;
-    let reconnectTimeout = null;
-    let isSubscribed = true;
 
-    const connectWS = () => {
-      if (!isSubscribed) return;
-      const wsUrl = `${WS_BASE_URL}?user_id=${currentUserId || 0}`;
-      ws = new WebSocket(wsUrl);
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          // 1. Yeni İlan Geldiğinde (Benim ilanımsa doğrudan listeye ekle)
-          if (data.type === 'NEW_LISTING' && data.payload) {
-            const newListing = data.payload;
-            if (currentUserId && Number(newListing.seller_id) === Number(currentUserId)) {
-              setMyListings(prev => {
-                if (prev.some(l => l.id === newListing.id)) return prev;
-                return [newListing, ...prev];
-              });
-            }
-          } 
-          // 2. Yeni Teklif Geldiğinde (İlanlarımda veya Tekliflerimde fiyatı güncelle)
-          else if (data.type === 'NEW_BID' || data.type === 'NEW_BID_SELLER') {
-            const listId = Number(data.listing_id || data.payload?.listing_id);
-            const newPrice = data.payload?.amount || data.payload?.current_price;
-            if (listId && newPrice) {
-              setMyListings(prev => prev.map(l => l.id === listId ? { ...l, current_price: newPrice } : l));
-              setMyBids(prev => prev.map(b => b.listing_id === listId ? { ...b, current_price: newPrice } : b));
-            }
+    // Canlı Dinleme (WebSocket + Polling Fallback)
+    const unsub = realtimeManager.subscribe({ user_id: currentUserId || 0 }, (data) => {
+      try {
+        // 1. Yeni İlan Geldiğinde (Benim ilanımsa doğrudan listeye ekle)
+        if (data.type === 'NEW_LISTING' && data.payload) {
+          const newListing = data.payload;
+          if (currentUserId && Number(newListing.seller_id) === Number(currentUserId)) {
+            setMyListings(prev => {
+              if (prev.some(l => l.id === newListing.id)) return prev;
+              return [newListing, ...prev];
+            });
           }
-          // 3. İhale Bittiğinde
-          else if (data.type === 'AUCTION_ENDED') {
-            const listId = Number(data.listing_id || data.payload?.listing_id);
-            if (listId) {
-              setMyListings(prev => prev.map(l => l.id === listId ? { ...l, status: 'ended' } : l));
-              setMyBids(prev => prev.map(b => b.listing_id === listId ? { ...b, listing_status: 'ended' } : b));
-            }
+        } 
+        // 2. Yeni Teklif Geldiğinde (İlanlarımda veya Tekliflerimde fiyatı güncelle)
+        else if (data.type === 'NEW_BID' || data.type === 'NEW_BID_SELLER') {
+          const listId = Number(data.listing_id || data.payload?.listing_id);
+          const newPrice = data.payload?.amount || data.payload?.current_price;
+          if (listId && newPrice) {
+            setMyListings(prev => prev.map(l => l.id === listId ? { ...l, current_price: newPrice } : l));
+            setMyBids(prev => prev.map(b => b.listing_id === listId ? { ...b, current_price: newPrice } : b));
           }
-        } catch (err) {
-          console.error('ProfilePage WS Hatası:', err);
         }
-      };
-
-      ws.onclose = () => {
-        if (isSubscribed) {
-          reconnectTimeout = setTimeout(connectWS, 2000);
+        // 3. İhale Bittiğinde
+        else if (data.type === 'AUCTION_ENDED') {
+          const listId = Number(data.listing_id || data.payload?.listing_id);
+          if (listId) {
+            setMyListings(prev => prev.map(l => l.id === listId ? { ...l, status: 'ended' } : l));
+            setMyBids(prev => prev.map(b => b.listing_id === listId ? { ...b, listing_status: 'ended' } : b));
+          }
         }
-      };
-
-      ws.onerror = () => {
-        if (ws && ws.readyState === 1) ws.close();
-      };
-    };
-
-    connectWS();
-
-    return () => {
-      isSubscribed = false;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
-        ws.close();
+      } catch (err) {
+        console.error('ProfilePage WS Hatası:', err);
       }
-    };
+    });
+
+    return () => unsub();
   }, [user?.user_id, user?.id]);
 
   const handleDeleteListing = async (id) => {

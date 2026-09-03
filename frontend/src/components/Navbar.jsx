@@ -3,7 +3,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Plus, User, LogOut, LogIn, Gauge, MessageSquare } from 'lucide-react';
 import NotificationBell from './NotificationBell';
-import { messageAPI, WS_BASE_URL } from '../api/client';
+import { messageAPI } from '../api/client';
+import { realtimeManager } from '../api/realtimeManager';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -26,51 +27,22 @@ export default function Navbar() {
     // Sayfa değiştikçe (özellikle /messages sayfasına girip çıkınca) unread sayısını yenile
   }, [isAuthenticated, location.pathname]);
 
-  // WebSocket üzerinden yeni mesaj bildirimi dinleme
+  // Canlı Dinleme (WebSocket + Polling Fallback) üzerinden yeni mesaj bildirimi
   useEffect(() => {
     const currentUserId = user?.user_id || user?.id;
     if (!currentUserId) return;
 
-    let ws = null;
-    let reconnectTimeout = null;
-    let isSubscribed = true;
-
-    const connectWS = () => {
-      if (!isSubscribed) return;
-      const wsUrl = `${WS_BASE_URL}?user_id=${currentUserId}`;
-      ws = new WebSocket(wsUrl);
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'NEW_MESSAGE') {
-            if (data.payload.receiver_id === currentUserId && location.pathname !== '/messages') {
-              setUnreadMsgCount(prev => prev + 1);
-            }
+    const unsub = realtimeManager.subscribe({ user_id: currentUserId }, (data) => {
+      try {
+        if (data.type === 'NEW_MESSAGE') {
+          if (data.payload.receiver_id === currentUserId && location.pathname !== '/messages') {
+            setUnreadMsgCount(prev => prev + 1);
           }
-        } catch (e) {}
-      };
-
-      ws.onclose = () => {
-        if (isSubscribed) {
-          reconnectTimeout = setTimeout(connectWS, 2500);
         }
-      };
+      } catch (e) {}
+    });
 
-      ws.onerror = () => {
-        if (ws && ws.readyState === 1) ws.close();
-      };
-    };
-
-    connectWS();
-
-    return () => {
-      isSubscribed = false;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
-        ws.close();
-      }
-    };
+    return () => unsub();
   }, [user?.user_id, user?.id, location.pathname]);
 
   const handleLogout = () => {

@@ -87,16 +87,32 @@ func (h *Hub) Run() {
 
 // BroadcastNewBid yeni bir teklif verildiğinde ilgili ilanı izleyen herkese ve taraflara anında yayın yapar
 func (h *Hub) BroadcastNewBid(listingID int, amount float64, bidderName string, bidderID int, previousBidderID int, sellerID int, listingTitle string) {
+	bidPayload := map[string]interface{}{
+		"listing_id":    listingID,
+		"listing_title": listingTitle,
+		"amount":        amount,
+		"bidder_name":   bidderName,
+		"bidder_id":     bidderID,
+	}
+
 	msg := WSMessage{
 		Type:      "NEW_BID",
 		ListingID: listingID,
-		Payload: map[string]interface{}{
+		Payload:   bidPayload,
+	}
+
+	// Polling fallback için event buffer'a kaydet
+	GlobalEventBuffer.Push("NEW_BID", listingID, 0, bidPayload)
+	if sellerID > 0 && sellerID != bidderID {
+		GlobalEventBuffer.Push("NEW_BID_SELLER", listingID, sellerID, bidPayload)
+	}
+	if previousBidderID > 0 && previousBidderID != bidderID {
+		GlobalEventBuffer.Push("OUTBID", listingID, previousBidderID, map[string]interface{}{
 			"listing_id":    listingID,
 			"listing_title": listingTitle,
-			"amount":        amount,
-			"bidder_name":   bidderName,
-			"bidder_id":     bidderID,
-		},
+			"new_amount":    amount,
+			"message":       "Teklifiniz geçildi! Başka bir kullanıcı daha yüksek teklif verdi.",
+		})
 	}
 
 	data, err := json.Marshal(msg)
@@ -164,6 +180,9 @@ func (h *Hub) BroadcastNewListing(listing interface{}) {
 		Payload: listing,
 	}
 
+	// Polling fallback için event buffer'a kaydet
+	GlobalEventBuffer.Push("NEW_LISTING", 0, 0, listing)
+
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return
@@ -182,17 +201,22 @@ func (h *Hub) BroadcastNewListing(listing interface{}) {
 
 // BroadcastAuctionEnded açık artırma bittiğinde duyurur
 func (h *Hub) BroadcastAuctionEnded(listingID int, winnerID int, winnerName string, finalPrice float64, listingTitle string) {
+	auctionPayload := map[string]interface{}{
+		"listing_id":    listingID,
+		"listing_title": listingTitle,
+		"winner_id":     winnerID,
+		"winner_name":   winnerName,
+		"final_price":   finalPrice,
+	}
+
 	msg := WSMessage{
 		Type:      "AUCTION_ENDED",
 		ListingID: listingID,
-		Payload: map[string]interface{}{
-			"listing_id":    listingID,
-			"listing_title": listingTitle,
-			"winner_id":     winnerID,
-			"winner_name":   winnerName,
-			"final_price":   finalPrice,
-		},
+		Payload:   auctionPayload,
 	}
+
+	// Polling fallback için event buffer'a kaydet
+	GlobalEventBuffer.Push("AUCTION_ENDED", listingID, 0, auctionPayload)
 
 	data, _ := json.Marshal(msg)
 	if data == nil {
@@ -216,6 +240,12 @@ func (h *Hub) BroadcastNewMessage(msg interface{}, receiverID int, senderID int)
 		Type:    "NEW_MESSAGE",
 		UserID:  receiverID,
 		Payload: msg,
+	}
+
+	// Polling fallback için event buffer'a kaydet (hem alıcı hem gönderen için)
+	GlobalEventBuffer.Push("NEW_MESSAGE", 0, receiverID, msg)
+	if senderID != receiverID {
+		GlobalEventBuffer.Push("NEW_MESSAGE", 0, senderID, msg)
 	}
 
 	data, err := json.Marshal(wsMsg)

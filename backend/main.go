@@ -41,6 +41,37 @@ func main() {
 		services.ServeWS(services.GlobalHub, w, r)
 	})
 
+	// --- WebSocket Polling Fallback Route'u ---
+	// Şirket ağlarında WebSocket engellendiğinde bu endpoint üzerinden aynı veriler HTTP ile alınır.
+	mux.HandleFunc("GET /api/ws/poll", func(w http.ResponseWriter, r *http.Request) {
+		sinceStr := r.URL.Query().Get("since")
+		userIDStr := r.URL.Query().Get("user_id")
+		listingIDStr := r.URL.Query().Get("listing_id")
+
+		var sinceSeqID int64
+		var userID, listingID int
+
+		if sinceStr != "" {
+			fmt.Sscanf(sinceStr, "%d", &sinceSeqID)
+		}
+		if userIDStr != "" {
+			fmt.Sscanf(userIDStr, "%d", &userID)
+		}
+		if listingIDStr != "" {
+			fmt.Sscanf(listingIDStr, "%d", &listingID)
+		}
+
+		events := services.GlobalEventBuffer.GetSince(sinceSeqID, userID, listingID)
+		latestSeq := services.GlobalEventBuffer.GetLatestSeqID()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"events":     events,
+			"latest_seq": latestSeq,
+		})
+	})
+
 	// --- Medya Yükleme (Upload) Route'u ---
 	mux.HandleFunc("POST /api/upload", middleware.AuthRequired(handlers.UploadHandler))
 

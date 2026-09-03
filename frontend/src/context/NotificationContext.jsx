@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { userAPI, WS_BASE_URL } from '../api/client';
+import { userAPI } from '../api/client';
+import { realtimeManager } from '../api/realtimeManager';
 
 const NotificationContext = createContext(null);
 
@@ -111,100 +112,66 @@ export function NotificationProvider({ children }) {
     syncUserBidsAndNotifications();
   }, [isAuthenticated, user]);
 
-  // WebSocket Canlı Akış Bağlantısını Yönet (Otomatik Yeniden Bağlanma Destekli)
+  // Canlı Bildirim Akışı (WebSocket + Polling Fallback)
   useEffect(() => {
-    let ws = null;
-    let reconnectTimeout = null;
-    let isSubscribed = true;
+    const currentUserId = user?.user_id || user?.id || 0;
 
-    const connectWS = () => {
-      if (!isSubscribed) return;
-      const currentUserId = user?.user_id || user?.id || 0;
-      const wsUrl = `${WS_BASE_URL}?user_id=${currentUserId}`;
-      ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+    const unsub = realtimeManager.subscribe({ user_id: currentUserId }, (data) => {
+      try {
+        if (data.type === 'NEW_BID_SELLER') {
+          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
+          const newNotif = {
+            id: Date.now(),
+            type: 'NEW_BID_SELLER',
+            title: '🔔 İlanınıza Yeni Teklif!',
+            message: `"${data.payload?.listing_title || 'İlan'}" ilanınıza ${data.payload?.bidder_name || 'Bir alıcı'} tarafından ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklif verildi.`,
+            listing_id: listId,
+            created_at: new Date().toISOString(),
+            read: false,
+          };
 
-      ws.onopen = () => {
-        console.log('⚡ WebSocket Canlı Bildirim Akışı Bağlandı:', currentUserId);
-      };
+          setNotifications(prev => [newNotif, ...prev]);
+          showToast(newNotif.title, newNotif.message, listId);
+        } else if (data.type === 'OUTBID') {
+          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
+          const newNotif = {
+            id: Date.now(),
+            type: 'OUTBID',
+            title: '⚠️ Teklifiniz Geçildi!',
+            message: `"${data.payload?.listing_title || 'İzlediğiniz ilan'}" için yeni en yüksek teklif: ${Number(data.payload?.new_amount || 0).toLocaleString('tr-TR')} ₺`,
+            listing_id: listId,
+            created_at: new Date().toISOString(),
+            read: false,
+          };
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.type === 'NEW_BID_SELLER') {
-            const listId = Number(data.listing_id || data.payload?.listing_id || 0);
+          setNotifications(prev => [newNotif, ...prev]);
+          showToast(newNotif.title, newNotif.message, listId);
+        } else if (data.type === 'AUCTION_ENDED') {
+          const listId = Number(data.listing_id || data.payload?.listing_id || 0);
+          if (user && data.payload?.winner_id === user.user_id) {
             const newNotif = {
-              id: Date.now(),
-              type: 'NEW_BID_SELLER',
-              title: '🔔 İlanınıza Yeni Teklif!',
-              message: `"${data.payload?.listing_title || 'İlan'}" ilanınıza ${data.payload?.bidder_name || 'Bir alıcı'} tarafından ${Number(data.payload?.amount || 0).toLocaleString('tr-TR')} ₺ teklif verildi.`,
+              id: `won-${listId}`,
+              type: 'AUCTION_WON',
+              title: '🎉 Açık Artırmayı Kazandınız!',
+              message: `Tebrikler! "${data.payload?.listing_title || 'Araç'}" ihalesini ${Number(data.payload?.final_price || 0).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
               listing_id: listId,
               created_at: new Date().toISOString(),
               read: false,
             };
 
-            setNotifications(prev => [newNotif, ...prev]);
+            setNotifications(prev => {
+              const filtered = prev.filter(n => n.id !== newNotif.id);
+              return [newNotif, ...filtered];
+            });
             showToast(newNotif.title, newNotif.message, listId);
-          } else if (data.type === 'OUTBID') {
-            const listId = Number(data.listing_id || data.payload?.listing_id || 0);
-            const newNotif = {
-              id: Date.now(),
-              type: 'OUTBID',
-              title: '⚠️ Teklifiniz Geçildi!',
-              message: `"${data.payload?.listing_title || 'İzlediğiniz ilan'}" için yeni en yüksek teklif: ${Number(data.payload?.new_amount || 0).toLocaleString('tr-TR')} ₺`,
-              listing_id: listId,
-              created_at: new Date().toISOString(),
-              read: false,
-            };
-
-            setNotifications(prev => [newNotif, ...prev]);
-            showToast(newNotif.title, newNotif.message, listId);
-          } else if (data.type === 'AUCTION_ENDED') {
-            const listId = Number(data.listing_id || data.payload?.listing_id || 0);
-            if (user && data.payload?.winner_id === user.user_id) {
-              const newNotif = {
-                id: `won-${listId}`,
-                type: 'AUCTION_WON',
-                title: '🎉 Açık Artırmayı Kazandınız!',
-                message: `Tebrikler! "${data.payload?.listing_title || 'Araç'}" ihalesini ${Number(data.payload?.final_price || 0).toLocaleString('tr-TR')} ₺ teklifinizle kazandınız.`,
-                listing_id: listId,
-                created_at: new Date().toISOString(),
-                read: false,
-              };
-
-              setNotifications(prev => {
-                const filtered = prev.filter(n => n.id !== newNotif.id);
-                return [newNotif, ...filtered];
-              });
-              showToast(newNotif.title, newNotif.message, listId);
-            }
           }
-        } catch (err) {
-          console.error('WS Mesaj Hatası:', err);
         }
-      };
-
-      ws.onclose = () => {
-        if (isSubscribed) {
-          reconnectTimeout = setTimeout(connectWS, 2000);
-        }
-      };
-
-      ws.onerror = () => {
-        if (ws && ws.readyState === 1) ws.close();
-      };
-    };
-
-    connectWS();
-
-    return () => {
-      isSubscribed = false;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
-        ws.close();
+      } catch (err) {
+        console.error('WS Mesaj Hatası:', err);
       }
-    };
+    });
+
+    return () => unsub();
   }, [user]);
 
   const showToast = (title, message, listing_id) => {

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { messageAPI, listingAPI, WS_BASE_URL } from '../api/client';
+import { messageAPI, listingAPI } from '../api/client';
+import { realtimeManager } from '../api/realtimeManager';
 import {
   MessageSquare,
   Send,
@@ -150,17 +151,12 @@ export default function MessagesPage() {
     };
   }, [activeConv?.listing_id, activeConv?.other_user_id]);
 
-  // 3. Canlı WebSocket Dinleyicisi
+  // 3. Canlı Dinleme (WebSocket + Polling Fallback)
   useEffect(() => {
     if (!user || !user.user_id) return;
 
-    const wsUrl = `${WS_BASE_URL}?user_id=${user.user_id}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onmessage = (event) => {
+    const unsub = realtimeManager.subscribe({ user_id: user.user_id }, (data) => {
       try {
-        const data = JSON.parse(event.data);
         if (data.type === 'NEW_MESSAGE') {
           const newMsg = data.payload;
 
@@ -171,7 +167,6 @@ export default function MessagesPage() {
             (newMsg.sender_id === activeConv.other_user_id || newMsg.receiver_id === activeConv.other_user_id)
           ) {
             setMessages(prev => {
-              // Çift eklemeyi engelle
               if (prev.some(m => m.id === newMsg.id)) return prev;
               return [...prev, newMsg];
             });
@@ -214,11 +209,9 @@ export default function MessagesPage() {
       } catch (e) {
         console.error('WS Mesaj Hatası:', e);
       }
-    };
+    });
 
-    return () => {
-      if (ws.readyState === 1) ws.close();
-    };
+    return () => unsub();
   }, [user?.user_id, activeConv]);
 
   // 4. Mesaj Gönderme

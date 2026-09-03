@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { listingAPI, WS_BASE_URL } from '../api/client';
+import { listingAPI } from '../api/client';
+import { realtimeManager } from '../api/realtimeManager';
 import ListingCard from '../components/ListingCard';
 import { 
   Search, RotateCcw, SlidersHorizontal, ChevronDown, 
@@ -45,69 +46,40 @@ export default function ListingsPage() {
     fetchListings(true, { brand, status, minPrice, maxPrice });
   }, [brand, status]);
 
-  // Canlı WebSocket Bağlantısı: Yeni ilanlar, teklifler ve biten açık artırmalar için anlık güncelleme
+  // Canlı Dinleme (WebSocket + Polling Fallback): Yeni ilanlar, teklifler ve biten açık artırmalar
   useEffect(() => {
-    let ws = null;
-    let reconnectTimeout = null;
-    let isSubscribed = true;
-
-    const connectWS = () => {
-      if (!isSubscribed) return;
-      ws = new WebSocket(WS_BASE_URL);
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.type === 'NEW_LISTING' && data.payload) {
-            const newListing = data.payload;
-            setListings(prev => {
-              if (prev.some(l => l.id === newListing.id)) return prev;
-              return [newListing, ...prev];
-            });
-            fetchListings(false, filtersRef.current);
-          } else if (data.type === 'NEW_BID') {
-            setListings(prev => prev.map(l => {
-              if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
-                return { ...l, current_price: data.payload?.amount || data.payload?.current_price || l.current_price };
-              }
-              return l;
-            }));
-            fetchListings(false, filtersRef.current);
-          } else if (data.type === 'AUCTION_ENDED') {
-            setListings(prev => prev.map(l => {
-              if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
-                return { ...l, status: 'ended' };
-              }
-              return l;
-            }));
-            fetchListings(false, filtersRef.current);
-          }
-        } catch (err) {
-          console.error('ListingsPage WS Hatası:', err);
+    const unsub = realtimeManager.subscribe({}, (data) => {
+      try {
+        if (data.type === 'NEW_LISTING' && data.payload) {
+          const newListing = data.payload;
+          setListings(prev => {
+            if (prev.some(l => l.id === newListing.id)) return prev;
+            return [newListing, ...prev];
+          });
+          fetchListings(false, filtersRef.current);
+        } else if (data.type === 'NEW_BID') {
+          setListings(prev => prev.map(l => {
+            if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
+              return { ...l, current_price: data.payload?.amount || data.payload?.current_price || l.current_price };
+            }
+            return l;
+          }));
+          fetchListings(false, filtersRef.current);
+        } else if (data.type === 'AUCTION_ENDED') {
+          setListings(prev => prev.map(l => {
+            if (l.id === data.listing_id || l.id === data.payload?.listing_id) {
+              return { ...l, status: 'ended' };
+            }
+            return l;
+          }));
+          fetchListings(false, filtersRef.current);
         }
-      };
-
-      ws.onclose = () => {
-        if (isSubscribed) {
-          reconnectTimeout = setTimeout(connectWS, 2000);
-        }
-      };
-
-      ws.onerror = () => {
-        if (ws && ws.readyState === 1) ws.close();
-      };
-    };
-
-    connectWS();
-
-    return () => {
-      isSubscribed = false;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (ws && (ws.readyState === 0 || ws.readyState === 1)) {
-        ws.close();
+      } catch (err) {
+        console.error('ListingsPage WS Hatası:', err);
       }
-    };
+    });
+
+    return () => unsub();
   }, []);
 
   const handleFilterSubmit = (e) => {
