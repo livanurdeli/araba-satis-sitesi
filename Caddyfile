@@ -1,5 +1,5 @@
 # ==============================================================================
-# Otopazar - Caddyfile (Modern Reverse Proxy & SSL Configuration)
+# Otopazar - Caddyfile (Reverse Proxy Configuration)
 # ==============================================================================
 # Global Ayarlar
 {
@@ -7,15 +7,14 @@
 }
 
 # ------------------------------------------------------------------------------
-# Domain (sslip.io ile ücretsiz, gerçek IP'ye çözülen alan adı) + Otomatik HTTPS
+# Doğrudan Elastic IP (Port 80 HTTP) ile Erişim
 # ------------------------------------------------------------------------------
-3.123.160.13.sslip.io {
+http://3.123.160.13, :80 {
     # 1. Gzip ve Zstandard ile Anında Sıkıştırma (Performans & Hız)
     encode zstd gzip
 
     # 2. Güvenlik Başlıkları (Security Headers)
     header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-Frame-Options "SAMEORIGIN"
         X-Content-Type-Options "nosniff"
         X-XSS-Protection "1; mode=block"
@@ -46,11 +45,4 @@
         format console
         level INFO
     }
-}
-
-# ------------------------------------------------------------------------------
-# Sadece çıplak IP ile gelen (domain kullanmayan) istekleri sslip.io'ya yönlendir
-# ------------------------------------------------------------------------------
-http://3.123.160.13 {
-    redir https://3.123.160.13.sslip.io{uri} permanent
 }
