@@ -47,7 +47,10 @@ go run main.go
 Tarayıcınızdan açın: **http://localhost:8080**
 
 ---
-<img width="2940" height="1912" alt="image" src="https://github.com/user-attachments/assets/fcc0486b-8130-4ccc-a306-cea3a6ee4be8" />
+<img width="1133" height="615" alt="image" src="https://github.com/user-attachments/assets/d9f4592f-3c7f-426e-800b-43e6e3e3021d" />
 
+<img width="1409" height="765" alt="image" src="https://github.com/user-attachments/assets/3ab076cd-cffa-415a-a96f-e821c1f5b8ee" />
+
+<img width="1408" height="764" alt="image" src="https://github.com/user-attachments/assets/6ae0bb18-2d57-45c2-add1-2f16bc6932d9" />
 
 
